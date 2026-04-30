@@ -60,5 +60,5 @@ export interface TaskUpdateInput {
   completed_at?: string | null
 }
 
-export type FilterType = 'task_library' | 'my_tasks' | 'today' | 'important' | 'done' | 'category'
+export type FilterType = 'task_library' | 'my_tasks' | 'today' | 'important' | 'done' | 'category' | 'calendar'
 export type LibraryStatusFilter = 'all' | 'todo' | 'in_progress' | 'done'

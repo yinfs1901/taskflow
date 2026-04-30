@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import dayjs from 'dayjs'
 import type { Task, Category, Tag, TaskCreateInput, TaskUpdateInput, FilterType, LibraryStatusFilter } from '../types'
 
 const api = window.api
@@ -16,6 +17,9 @@ interface TaskStore {
   pageSize: number
   currentPage: number
   libraryStatus: LibraryStatusFilter
+  calendarTasks: Task[]
+  calendarDate: string  // ISO date for current view anchor (first day of month/week)
+  calendarViewMode: 'month' | 'week' | 'year'
 
   // Actions
   loadTasks: () => Promise<void>
@@ -32,6 +36,9 @@ interface TaskStore {
   setPage: (page: number) => void
   setPageSize: (size: number) => void
   setLibraryStatus: (status: LibraryStatusFilter) => void
+  loadCalendar: () => Promise<void>
+  setCalendarView: (mode: 'month' | 'week' | 'year') => void
+  navigateCalendar: (dir: 'prev' | 'next') => void
   createCategory: (name: string, color: string) => Promise<void>
   deleteCategory: (id: string) => Promise<void>
   createTag: (name: string, color: string) => Promise<void>
@@ -51,6 +58,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   pageSize: 20,
   currentPage: 1,
   libraryStatus: 'todo',
+  calendarTasks: [],
+  calendarDate: dayjs().startOf('month').format('YYYY-MM-DD'),
+  calendarViewMode: 'month',
 
   loadTasks: async () => {
     const { activeFilter, activeCategoryId, searchQuery, orderBy, libraryStatus } = get()
@@ -160,5 +170,36 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setLibraryStatus: (status) => {
     set({ libraryStatus: status, selectedTaskId: null, selectedTask: null })
     get().loadTasks()
+  },
+
+  loadCalendar: async () => {
+    const { calendarDate, calendarViewMode } = get()
+    const d = dayjs(calendarDate)
+    const filters: any = { year: d.year() }
+    if (calendarViewMode === 'month') {
+      filters.month = d.month() + 1
+    }
+    const tasks = await api.taskCalendar(filters)
+    set({ calendarTasks: tasks })
+  },
+
+  setCalendarView: (mode) => {
+    set({ calendarViewMode: mode })
+    get().loadCalendar()
+  },
+
+  navigateCalendar: (dir) => {
+    const { calendarDate, calendarViewMode } = get()
+    const d = dayjs(calendarDate)
+    let next: dayjs.Dayjs
+    if (calendarViewMode === 'year') {
+      next = dir === 'prev' ? d.subtract(1, 'year') : d.add(1, 'year')
+    } else if (calendarViewMode === 'month') {
+      next = dir === 'prev' ? d.subtract(1, 'month') : d.add(1, 'month')
+    } else {
+      next = dir === 'prev' ? d.subtract(1, 'week') : d.add(1, 'week')
+    }
+    set({ calendarDate: next.format('YYYY-MM-DD') })
+    get().loadCalendar()
   },
 }))

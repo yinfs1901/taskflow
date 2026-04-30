@@ -184,6 +184,47 @@ ipcMain.handle('task:delete', (_, id) => {
   return { success: true }
 })
 
+// --- IPC: Calendar ---
+ipcMain.handle('task:calendar', (_, filters) => {
+  const params = []
+  let where = `WHERE calendar_date IS NOT NULL`
+  
+  if (filters) {
+    if (filters.year) {
+      where += ` AND strftime('%Y', calendar_date) = ?`
+      params.push(String(filters.year))
+    }
+    if (filters.month) {
+      where += ` AND strftime('%m', calendar_date) = ?`
+      params.push(String(filters.month).padStart(2, '0'))
+    }
+  }
+
+  const sql = `
+    SELECT * FROM (
+      SELECT t.*, c.name as category_name, c.color as category_color,
+        CASE 
+          WHEN t.status = 'in_progress' THEN t.accepted_at
+          WHEN t.status = 'done' THEN t.completed_at
+          WHEN t.status = 'todo' THEN t.deadline
+        END as calendar_date
+      FROM tasks t
+      LEFT JOIN categories c ON t.category_id = c.id
+    ) ${where}
+    ORDER BY calendar_date ASC
+  `
+
+  const tasks = db.prepare(sql).all(...params)
+
+  // Attach tags
+  const tagStmt = db.prepare(`SELECT tg.* FROM tags tg JOIN task_tags tt ON tg.id = tt.tag_id WHERE tt.task_id = ?`)
+  for (const task of tasks) {
+    task.tags = tagStmt.all(task.id)
+  }
+
+  return tasks
+})
+
 // --- IPC: Categories ---
 ipcMain.handle('category:list', () => {
   return db.prepare(`SELECT * FROM categories ORDER BY sort_order ASC`).all()

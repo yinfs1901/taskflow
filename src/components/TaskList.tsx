@@ -72,7 +72,7 @@ export default function TaskList() {
                 </div>
               )}
             </div>
-            {activeFilter !== 'my_tasks' && (
+            {activeFilter === 'task_library' && (
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-1 px-3 py-1.5 bg-[#89b4fa] text-[#1e1e2e] rounded-lg text-sm font-medium hover:bg-[#74c7ec] transition-colors"

@@ -8,6 +8,7 @@ const filterItems = [
   { key: 'today' as const, label: '今天到期', icon: Calendar, color: '#a6e3a1' },
   { key: 'important' as const, label: '重要', icon: Star, color: '#fab387' },
   { key: 'done' as const, label: '已完成', icon: CheckCircle, color: '#6c7086' },
+  { key: 'calendar' as const, label: '日历', icon: Calendar, color: '#f5c2e7' },
 ]
 
 export default function Sidebar() {
