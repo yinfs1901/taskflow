@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Task, Category, Tag, TaskCreateInput, TaskUpdateInput, FilterType } from '../types'
+import type { Task, Category, Tag, TaskCreateInput, TaskUpdateInput, FilterType, LibraryStatusFilter } from '../types'
 
 const api = window.api
 
@@ -15,6 +15,7 @@ interface TaskStore {
   orderBy: string
   pageSize: number
   currentPage: number
+  libraryStatus: LibraryStatusFilter
 
   // Actions
   loadTasks: () => Promise<void>
@@ -30,6 +31,7 @@ interface TaskStore {
   setOrderBy: (orderBy: string) => Promise<void>
   setPage: (page: number) => void
   setPageSize: (size: number) => void
+  setLibraryStatus: (status: LibraryStatusFilter) => void
   createCategory: (name: string, color: string) => Promise<void>
   deleteCategory: (id: string) => Promise<void>
   createTag: (name: string, color: string) => Promise<void>
@@ -48,15 +50,18 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   orderBy: 'deadline ASC',
   pageSize: 20,
   currentPage: 1,
+  libraryStatus: 'todo',
 
   loadTasks: async () => {
-    const { activeFilter, activeCategoryId, searchQuery, orderBy } = get()
+    const { activeFilter, activeCategoryId, searchQuery, orderBy, libraryStatus } = get()
     const filters: any = { orderBy }
     if (activeFilter === 'today') filters.today = true
     else if (activeFilter === 'important') filters.important = true
     else if (activeFilter === 'done') filters.status = 'done'
-    else if (activeFilter === 'cancelled') filters.status = 'cancelled'
-    else if (activeFilter === 'task_library') filters.task_library = true
+    else if (activeFilter === 'task_library') {
+      if (libraryStatus !== 'all') filters.status = libraryStatus
+    }
+    else if (activeFilter === 'my_tasks') filters.my_tasks = true
     if (activeFilter === 'category' && activeCategoryId) filters.category_id = activeCategoryId
     if (searchQuery) filters.search = searchQuery
     const tasks = await api.taskList(filters)
@@ -150,5 +155,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   setPageSize: (size) => {
     set({ pageSize: size, currentPage: 1 })
+  },
+
+  setLibraryStatus: (status) => {
+    set({ libraryStatus: status, selectedTaskId: null, selectedTask: null })
+    get().loadTasks()
   },
 }))

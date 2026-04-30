@@ -1,61 +1,80 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
-const Database = require('better-sqlite3')
 
 let db = null
 let mainWindow = null
 
 function initDatabase() {
-  const dbPath = path.join(app.getPath('userData'), 'taskflow.db')
-  db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
+  try {
+    const Database = require('better-sqlite3')
+    const dbPath = path.join(app.getPath('userData'), 'taskflow.db')
+    console.log('Database path:', dbPath)
+    db = new Database(dbPath)
+    console.log('Database opened successfully')
+    
+    db.pragma('journal_mode = WAL')
+    db.pragma('foreign_keys = ON')
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      color TEXT DEFAULT '#6366f1',
-      sort_order INTEGER DEFAULT 0
-    );
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#6366f1',
+        sort_order INTEGER DEFAULT 0
+      );
 
-    CREATE TABLE IF NOT EXISTS tags (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      color TEXT DEFAULT '#8b5cf6'
-    );
+      CREATE TABLE IF NOT EXISTS tags (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#8b5cf6'
+      );
 
-    CREATE TABLE IF NOT EXISTS tasks (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      status TEXT DEFAULT 'todo' CHECK(status IN ('todo','in_progress','done','cancelled')),
-      priority TEXT DEFAULT 'medium' CHECK(priority IN ('low','medium','high','urgent')),
-      deadline TEXT,
-      category_id TEXT,
-      assignees TEXT DEFAULT '[]',
-      created_at TEXT DEFAULT (datetime('now','localtime')),
-      updated_at TEXT DEFAULT (datetime('now','localtime')),
-      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-    );
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        status TEXT DEFAULT 'todo' CHECK(status IN ('todo','in_progress','done','cancelled')),
+        priority TEXT DEFAULT 'medium' CHECK(priority IN ('low','medium','high','urgent')),
+        deadline TEXT,
+        category_id TEXT,
+        owner_id TEXT,
+        accepted_at TEXT,
+        completed_at TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+      );
 
-    CREATE TABLE IF NOT EXISTS task_tags (
-      task_id TEXT NOT NULL,
-      tag_id TEXT NOT NULL,
-      PRIMARY KEY (task_id, tag_id),
-      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-      FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-    );
+      CREATE TABLE IF NOT EXISTS task_tags (
+        task_id TEXT NOT NULL,
+        tag_id TEXT NOT NULL,
+        PRIMARY KEY (task_id, tag_id),
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+      );
 
-    CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-    CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline);
-    CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id);
-  `)
+      CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+      CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline);
+      CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id);
+      CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_id);
+    `)
 
-  // Migration: add assignees column if missing
-  const cols = db.prepare(`PRAGMA table_info(tasks)`).all().map(c => c.name)
-  if (!cols.includes('assignees')) {
-    db.exec(`ALTER TABLE tasks ADD COLUMN assignees TEXT DEFAULT '[]'`)
+    // Migration: add new columns if missing
+    const cols = db.prepare(`PRAGMA table_info(tasks)`).all().map(c => c.name)
+    if (!cols.includes('owner_id')) {
+      db.exec(`ALTER TABLE tasks ADD COLUMN owner_id TEXT`)
+    }
+    if (!cols.includes('accepted_at')) {
+      db.exec(`ALTER TABLE tasks ADD COLUMN accepted_at TEXT`)
+    }
+    if (!cols.includes('completed_at')) {
+      db.exec(`ALTER TABLE tasks ADD COLUMN completed_at TEXT`)
+    }
+    
+    console.log('Database schema initialized')
+  } catch (err) {
+    console.error('Database init failed:', err)
+    throw err
   }
 }
 
@@ -75,6 +94,9 @@ ipcMain.handle('task:list', (_, filters) => {
       }
       if (filters.task_library) {
         sql += ` AND t.status IN ('todo', 'in_progress')`
+      }
+      if (filters.my_tasks) {
+        sql += ` AND t.owner_id IS NOT NULL AND t.status = 'in_progress'`
       }
       if (filters.category_id) {
         sql += ` AND t.category_id = ?`
@@ -97,7 +119,11 @@ ipcMain.handle('task:list', (_, filters) => {
     }
   }
 
-  const orderBy = filters?.orderBy || 'deadline ASC'
+  // 任务库默认按创建时间倒序，其他按指定排序
+  let orderBy = filters?.orderBy || 'deadline ASC'
+  if (filters?.task_library) {
+    orderBy = 'created_at DESC'
+  }
   if (!filters?.id) sql += ` ORDER BY ${orderBy}`
 
   const tasks = db.prepare(sql).all(...params)
@@ -105,11 +131,6 @@ ipcMain.handle('task:list', (_, filters) => {
   const tagStmt = db.prepare(`SELECT tg.* FROM tags tg JOIN task_tags tt ON tg.id = tt.tag_id WHERE tt.task_id = ?`)
   for (const task of tasks) {
     task.tags = tagStmt.all(task.id)
-    try {
-      task.assignees = JSON.parse(task.assignees || '[]')
-    } catch {
-      task.assignees = []
-    }
   }
 
   return tasks
@@ -118,9 +139,8 @@ ipcMain.handle('task:list', (_, filters) => {
 ipcMain.handle('task:create', (_, task) => {
   const id = task.id || require('uuid').v4()
   const now = new Date().toISOString()
-  const assigneesJson = JSON.stringify(task.assignees || [])
-  db.prepare(`INSERT INTO tasks (id, title, description, status, priority, deadline, category_id, assignees, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(id, task.title, task.description || '', task.status || 'todo', task.priority || 'medium', task.deadline || null, task.category_id || null, assigneesJson, now, now)
+  db.prepare(`INSERT INTO tasks (id, title, description, status, priority, deadline, category_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, task.title, task.description || '', task.status || 'todo', task.priority || 'medium', task.deadline || null, task.category_id || null, now, now)
 
   if (task.tag_ids && task.tag_ids.length > 0) {
     const insertTag = db.prepare(`INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)`)
@@ -136,9 +156,9 @@ ipcMain.handle('task:update', (_, id, updates) => {
   const fields = []
   const params = []
   for (const [key, value] of Object.entries(updates)) {
-    if (['title', 'description', 'status', 'priority', 'deadline', 'category_id', 'assignees'].includes(key)) {
+    if (['title', 'description', 'status', 'priority', 'deadline', 'category_id', 'owner_id', 'accepted_at', 'completed_at'].includes(key)) {
       fields.push(`${key} = ?`)
-      params.push(key === 'assignees' ? JSON.stringify(value) : value)
+      params.push(value)
     }
   }
   if (fields.length === 0) return null
@@ -225,31 +245,69 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#1e1e2e',
-      symbolColor: '#cdd6f4',
-      height: 36,
-    },
-    show: false,
+    show: true,
   })
 
-  mainWindow.once('ready-to-show', () => mainWindow.show())
+  // Fallback: show window after 3s if ready-to-show doesn't fire
+  const showTimer = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      console.log('Force showing window after timeout')
+      mainWindow.show()
+    }
+  }, 3000)
 
-  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-    mainWindow.loadURL('http://localhost:5173')
+  mainWindow.once('ready-to-show', () => {
+    clearTimeout(showTimer)
+    mainWindow.show()
+  })
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription)
+  })
+
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    console.log('[Renderer]', message)
+  })
+
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+  console.log('Is development:', isDev)
+  
+  if (isDev) {
+    console.log('Loading URL: http://localhost:5173')
+    mainWindow.loadURL('http://localhost:5173').catch(err => {
+      console.error('Failed to load URL:', err)
+    })
     mainWindow.webContents.openDevTools()
   } else {
+    console.log('Loading file:', path.join(__dirname, '../dist/index.html'))
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 }
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err)
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason)
+})
+
 app.whenReady().then(() => {
-  initDatabase()
+  console.log('App ready, initializing database...')
+  try {
+    initDatabase()
+    console.log('Database initialized')
+  } catch (err) {
+    console.error('Database init failed:', err)
+  }
+  console.log('Creating window...')
   createWindow()
+  console.log('Window created')
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}).catch(err => {
+  console.error('App ready failed:', err)
 })
 
 app.on('window-all-closed', () => {

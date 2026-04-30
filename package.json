@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0",
+    "better-sqlite3": "^11.10.0",
     "dayjs": "^1.11.13",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
