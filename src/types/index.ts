@@ -60,5 +60,21 @@ export interface TaskUpdateInput {
   completed_at?: string | null
 }
 
-export type FilterType = 'task_library' | 'my_tasks' | 'today' | 'important' | 'done' | 'category' | 'calendar'
+export type FilterType = 'task_library' | 'my_tasks' | 'today' | 'important' | 'done' | 'category' | 'calendar' | 'weekly_report'
 export type LibraryStatusFilter = 'all' | 'todo' | 'in_progress' | 'done'
+
+export interface WeeklyReportData {
+  weekStart: string
+  weekEnd: string
+  summary: {
+    created: number
+    completed: number
+    inProgress: number
+    overdue: number
+  }
+  dailyStats: { date: string; created: number; completed: number }[]
+  categoryStats: { name: string; color: string; total: number; done: number }[]
+  priorityStats: { priority: string; count: number }[]
+  createdTasks: Task[]
+  completedTasks: Task[]
+}

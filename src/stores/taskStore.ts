@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import dayjs from 'dayjs'
-import type { Task, Category, Tag, TaskCreateInput, TaskUpdateInput, FilterType, LibraryStatusFilter } from '../types'
+import type { Task, Category, Tag, TaskCreateInput, TaskUpdateInput, FilterType, LibraryStatusFilter, WeeklyReportData } from '../types'
+import isoWeek from 'dayjs/plugin/isoWeek'
+
+dayjs.extend(isoWeek)
 
 const api = window.api
 
@@ -20,6 +23,8 @@ interface TaskStore {
   calendarTasks: Task[]
   calendarDate: string  // ISO date for current view anchor (first day of month/week)
   calendarViewMode: 'month' | 'week' | 'year'
+  weekAnchor: string   // ISO date, Monday of current week
+  reportData: WeeklyReportData | null
 
   // Actions
   loadTasks: () => Promise<void>
@@ -39,6 +44,8 @@ interface TaskStore {
   loadCalendar: () => Promise<void>
   setCalendarView: (mode: 'month' | 'week' | 'year') => void
   navigateCalendar: (dir: 'prev' | 'next') => void
+  loadWeeklyReport: () => Promise<void>
+  navigateWeek: (dir: 'prev' | 'next') => void
   createCategory: (name: string, color: string) => Promise<void>
   deleteCategory: (id: string) => Promise<void>
   createTag: (name: string, color: string) => Promise<void>
@@ -61,6 +68,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   calendarTasks: [],
   calendarDate: dayjs().startOf('month').format('YYYY-MM-DD'),
   calendarViewMode: 'month',
+  weekAnchor: dayjs().startOf('isoWeek').format('YYYY-MM-DD'),
+  reportData: null,
 
   loadTasks: async () => {
     const { activeFilter, activeCategoryId, searchQuery, orderBy, libraryStatus } = get()
@@ -201,5 +210,19 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
     set({ calendarDate: next.format('YYYY-MM-DD') })
     get().loadCalendar()
+  },
+
+  loadWeeklyReport: async () => {
+    const { weekAnchor } = get()
+    const data = await api.weeklyReport(weekAnchor)
+    set({ reportData: data })
+  },
+
+  navigateWeek: (dir) => {
+    const { weekAnchor } = get()
+    const d = dayjs(weekAnchor)
+    const next = dir === 'prev' ? d.subtract(1, 'week') : d.add(1, 'week')
+    set({ weekAnchor: next.format('YYYY-MM-DD') })
+    get().loadWeeklyReport()
   },
 }))

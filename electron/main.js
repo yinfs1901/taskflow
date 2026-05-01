@@ -225,6 +225,118 @@ ipcMain.handle('task:calendar', (_, filters) => {
   return tasks
 })
 
+// --- IPC: Weekly Report ---
+ipcMain.handle('task:weekly-report', (_, weekStart) => {
+  const d = new Date(weekStart)
+  // weekStart should be a Monday
+  const mon = new Date(d)
+  mon.setHours(0, 0, 0, 0)
+  // Adjust to Monday if not already
+  const dayOfWeek = mon.getDay()
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  mon.setDate(mon.getDate() + mondayOffset)
+
+  const sun = new Date(mon)
+  sun.setDate(sun.getDate() + 6)
+  sun.setHours(23, 59, 59, 999)
+
+  const weekStartStr = mon.toISOString().slice(0, 10)
+  const weekEndStr = sun.toISOString().slice(0, 10)
+
+  // Summary
+  const createdCount = db.prepare(`
+    SELECT COUNT(*) as cnt FROM tasks
+    WHERE created_at >= ? AND created_at <= ?
+  `).get(weekStartStr + ' 00:00:00', weekEndStr + ' 23:59:59').cnt
+
+  const completedCount = db.prepare(`
+    SELECT COUNT(*) as cnt FROM tasks
+    WHERE completed_at >= ? AND completed_at <= ?
+  `).get(weekStartStr + ' 00:00:00', weekEndStr + ' 23:59:59').cnt
+
+  const inProgressCount = db.prepare(`
+    SELECT COUNT(*) as cnt FROM tasks WHERE status = 'in_progress'
+  `).get().cnt
+
+  const overdueCount = db.prepare(`
+    SELECT COUNT(*) as cnt FROM tasks
+    WHERE deadline < datetime('now','localtime')
+    AND status IN ('todo', 'in_progress')
+  `).get().cnt
+
+  // Daily stats - iterate each day
+  const dailyStats = []
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(mon)
+    day.setDate(day.getDate() + i)
+    const dayStr = day.toISOString().slice(0, 10)
+    const dayCreated = db.prepare(`
+      SELECT COUNT(*) as cnt FROM tasks
+      WHERE date(created_at) = ?
+    `).get(dayStr).cnt
+    const dayCompleted = db.prepare(`
+      SELECT COUNT(*) as cnt FROM tasks
+      WHERE date(completed_at) = ?
+    `).get(dayStr).cnt
+    dailyStats.push({ date: dayStr, created: dayCreated, completed: dayCompleted })
+  }
+
+  // Category stats
+  const categoryStats = db.prepare(`
+    SELECT c.name, c.color,
+      COUNT(t.id) as total,
+      SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as done
+    FROM categories c
+    LEFT JOIN tasks t ON t.category_id = c.id
+    GROUP BY c.id
+    ORDER BY c.sort_order ASC
+  `).all()
+
+  // Priority stats
+  const priorityStats = db.prepare(`
+    SELECT priority, COUNT(*) as count FROM tasks
+    WHERE status IN ('todo', 'in_progress')
+    GROUP BY priority
+  `).all()
+
+  // Created tasks this week
+  const createdTasks = db.prepare(`
+    SELECT t.*, c.name as category_name, c.color as category_color
+    FROM tasks t LEFT JOIN categories c ON t.category_id = c.id
+    WHERE t.created_at >= ? AND t.created_at <= ?
+    ORDER BY t.created_at DESC
+  `).all(weekStartStr + ' 00:00:00', weekEndStr + ' 23:59:59')
+
+  // Completed tasks this week
+  const completedTasks = db.prepare(`
+    SELECT t.*, c.name as category_name, c.color as category_color
+    FROM tasks t LEFT JOIN categories c ON t.category_id = c.id
+    WHERE t.completed_at >= ? AND t.completed_at <= ?
+    ORDER BY t.completed_at DESC
+  `).all(weekStartStr + ' 00:00:00', weekEndStr + ' 23:59:59')
+
+  // Attach tags
+  const tagStmt = db.prepare(`SELECT tg.* FROM tags tg JOIN task_tags tt ON tg.id = tt.tag_id WHERE tt.task_id = ?`)
+  for (const task of createdTasks) task.tags = tagStmt.all(task.id)
+  for (const task of completedTasks) task.tags = tagStmt.all(task.id)
+
+  return {
+    weekStart: weekStartStr,
+    weekEnd: weekEndStr,
+    summary: {
+      created: createdCount,
+      completed: completedCount,
+      inProgress: inProgressCount,
+      overdue: overdueCount,
+    },
+    dailyStats,
+    categoryStats,
+    priorityStats,
+    createdTasks,
+    completedTasks,
+  }
+})
+
 // --- IPC: Categories ---
 ipcMain.handle('category:list', () => {
   return db.prepare(`SELECT * FROM categories ORDER BY sort_order ASC`).all()

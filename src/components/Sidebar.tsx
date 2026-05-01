@@ -1,5 +1,5 @@
 import { useTaskStore } from '../stores/taskStore'
-import { Inbox, Calendar, Star, CheckCircle, Folder, Plus, X, Search, Library, User } from 'lucide-react'
+import { Inbox, Calendar, Star, CheckCircle, Folder, Plus, X, Search, Library, User, FileText } from 'lucide-react'
 import { useState } from 'react'
 
 const filterItems = [
@@ -9,6 +9,7 @@ const filterItems = [
   { key: 'important' as const, label: '重要', icon: Star, color: '#fab387' },
   { key: 'done' as const, label: '已完成', icon: CheckCircle, color: '#6c7086' },
   { key: 'calendar' as const, label: '日历', icon: Calendar, color: '#f5c2e7' },
+  { key: 'weekly_report' as const, label: '周报', icon: FileText, color: '#94e2d5' },
 ]
 
 export default function Sidebar() {
