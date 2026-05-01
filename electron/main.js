@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron')
 const path = require('path')
 
 let db = null
@@ -460,6 +460,48 @@ process.on('unhandledRejection', (reason, promise) => {
 })
 
 app.whenReady().then(() => {
+  // Custom application menu
+  const menuTemplate = [
+    {
+      label: 'File',
+      submenu: [
+        { role: 'quit', label: '退出' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: '关于',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: '关于 TaskFlow',
+              message: 'TaskFlow',
+              detail: `版本: V0.0.1\n\n任务管理系统`,
+              buttons: ['确定']
+            })
+          }
+        }
+      ]
+    }
+  ]
+
+  // macOS needs the app menu for Cmd+Q etc
+  if (process.platform === 'darwin') {
+    menuTemplate.unshift({
+      label: app.getName(),
+      submenu: [
+        { role: 'about', label: '关于' },
+        { type: 'separator' },
+        { role: 'quit', label: '退出' }
+      ]
+    })
+  }
+
+  const menu = Menu.buildFromTemplate(menuTemplate)
+  Menu.setApplicationMenu(menu)
+
   console.log('App ready, initializing database...')
   try {
     initDatabase()

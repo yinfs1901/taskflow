@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTaskStore } from '../stores/taskStore'
-import { ChevronLeft, ChevronRight, Plus, CheckCircle, Clock, AlertTriangle, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CheckCircle, Clock, AlertTriangle, Calendar, Copy, Check } from 'lucide-react'
 import dayjs from 'dayjs'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -317,10 +317,49 @@ function TaskRow({ task, showCompletion }: { task: any; showCompletion?: boolean
 }
 
 function WeeklySummary({ completedTasks, inProgressTasks }: { completedTasks: any[]; inProgressTasks: any[] }) {
+  const [copied, setCopied] = useState(false)
+
   const allTasks = [
     ...completedTasks.map((t) => ({ ...t, _section: '已完成' })),
     ...inProgressTasks.map((t) => ({ ...t, _section: '进行中' })),
   ]
+
+  const buildPlainText = () => {
+    const lines: string[] = ['本周总结']
+    lines.push('='.repeat(40))
+    for (const section of ['已完成', '进行中'] as const) {
+      const sectionTasks = allTasks.filter((t) => t._section === section)
+      if (sectionTasks.length === 0) continue
+      lines.push('')
+      lines.push(`【${section}】`)
+      sectionTasks.forEach((task, idx) => {
+        const prio = task.priority ? ` [${priorityLabels[task.priority]}]` : ''
+        const desc = task.description || '暂无描述'
+        const cat = task.category_name ? ` | 分类：${task.category_name}` : ''
+        lines.push(`${idx + 1}. ${task.title} — ${statusLabels[task.status] || task.status}${prio}`)
+        lines.push(`   ${desc}${cat}`)
+      })
+    }
+    return lines.join('\n')
+  }
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(buildPlainText())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback for older environments
+      const ta = document.createElement('textarea')
+      ta.value = buildPlainText()
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   if (allTasks.length === 0) {
     return <EmptyHint icon={<Calendar size={20} />} text="本周暂无完成任务或进行中任务" />
@@ -328,6 +367,21 @@ function WeeklySummary({ completedTasks, inProgressTasks }: { completedTasks: an
 
   return (
     <div className="space-y-4 text-sm leading-relaxed">
+      {/* Copy button */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+          style={{
+            backgroundColor: copied ? '#a6e3a120' : '#313244',
+            color: copied ? '#a6e3a1' : '#a6adc8',
+          }}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? '已复制' : '复制总结'}
+        </button>
+      </div>
+
       {/* Group by section */}
       {(['已完成', '进行中'] as const).map((section) => {
         const sectionTasks = allTasks.filter((t) => t._section === section)
