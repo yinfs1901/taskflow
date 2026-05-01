@@ -223,6 +223,14 @@ export default function WeeklyReport() {
             </div>
           )}
         </Section>
+
+        {/* Text Summary */}
+        <Section title="本周总结">
+          <WeeklySummary
+            completedTasks={completedTasks}
+            inProgressTasks={inProgressTasks}
+          />
+        </Section>
       </div>
     </div>
   )
@@ -304,6 +312,66 @@ function TaskRow({ task, showCompletion }: { task: any; showCompletion?: boolean
               : '准时'}
         </span>
       )}
+    </div>
+  )
+}
+
+function WeeklySummary({ completedTasks, inProgressTasks }: { completedTasks: any[]; inProgressTasks: any[] }) {
+  const allTasks = [
+    ...completedTasks.map((t) => ({ ...t, _section: '已完成' })),
+    ...inProgressTasks.map((t) => ({ ...t, _section: '进行中' })),
+  ]
+
+  if (allTasks.length === 0) {
+    return <EmptyHint icon={<Calendar size={20} />} text="本周暂无完成任务或进行中任务" />
+  }
+
+  return (
+    <div className="space-y-4 text-sm leading-relaxed">
+      {/* Group by section */}
+      {(['已完成', '进行中'] as const).map((section) => {
+        const sectionTasks = allTasks.filter((t) => t._section === section)
+        if (sectionTasks.length === 0) return null
+        const sectionColor = section === '已完成' ? '#a6e3a1' : '#fab387'
+        return (
+          <div key={section}>
+            <h4 className="text-xs font-semibold text-[#a6adc8] mb-2 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sectionColor }} />
+              {section}
+            </h4>
+            <div className="space-y-2">
+              {sectionTasks.map((task, idx) => (
+                <div key={task.id} className="text-[#bac2de] pl-4 border-l-2 border-[#313244]">
+                  <p>
+                    <span className="text-[#6c7086]">{idx + 1}.</span>{' '}
+                    <span className="font-medium text-[#cdd6f4]">{task.title}</span>
+                    <span className="text-[#6c7086]"> — {statusLabels[task.status] || task.status}</span>
+                    {task.priority && (
+                      <span
+                        className="ml-1.5 text-xs px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: `${priorityColors[task.priority]}18`,
+                          color: priorityColors[task.priority],
+                        }}
+                      >
+                        {priorityLabels[task.priority]}
+                      </span>
+                    )}
+                  </p>
+                  {task.description ? (
+                    <p className="text-[#a6adc8] mt-0.5">{task.description}</p>
+                  ) : (
+                    <p className="text-[#6c7086] italic mt-0.5">暂无描述</p>
+                  )}
+                  {task.category_name && (
+                    <p className="text-xs text-[#6c7086] mt-0.5">分类：{task.category_name}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
