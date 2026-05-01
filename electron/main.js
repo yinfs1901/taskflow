@@ -278,7 +278,11 @@ ipcMain.handle('task:weekly-report', (_, weekStart) => {
       SELECT COUNT(*) as cnt FROM tasks
       WHERE date(completed_at) = ?
     `).get(dayStr).cnt
-    dailyStats.push({ date: dayStr, created: dayCreated, completed: dayCompleted })
+    const dayInProgress = db.prepare(`
+      SELECT COUNT(*) as cnt FROM tasks
+      WHERE date(accepted_at) = ?
+    `).get(dayStr).cnt
+    dailyStats.push({ date: dayStr, created: dayCreated, completed: dayCompleted, inProgress: dayInProgress })
   }
 
   // Category stats
@@ -315,10 +319,19 @@ ipcMain.handle('task:weekly-report', (_, weekStart) => {
     ORDER BY t.completed_at DESC
   `).all(weekStartStr + ' 00:00:00', weekEndStr + ' 23:59:59')
 
+  // In-progress tasks (current)
+  const inProgressTasks = db.prepare(`
+    SELECT t.*, c.name as category_name, c.color as category_color
+    FROM tasks t LEFT JOIN categories c ON t.category_id = c.id
+    WHERE t.status = 'in_progress'
+    ORDER BY t.accepted_at DESC
+  `).all()
+
   // Attach tags
   const tagStmt = db.prepare(`SELECT tg.* FROM tags tg JOIN task_tags tt ON tg.id = tt.tag_id WHERE tt.task_id = ?`)
   for (const task of createdTasks) task.tags = tagStmt.all(task.id)
   for (const task of completedTasks) task.tags = tagStmt.all(task.id)
+  for (const task of inProgressTasks) task.tags = tagStmt.all(task.id)
 
   return {
     weekStart: weekStartStr,
@@ -334,6 +347,7 @@ ipcMain.handle('task:weekly-report', (_, weekStart) => {
     priorityStats,
     createdTasks,
     completedTasks,
+    inProgressTasks,
   }
 })
 

@@ -72,9 +72,10 @@ export interface WeeklyReportData {
     inProgress: number
     overdue: number
   }
-  dailyStats: { date: string; created: number; completed: number }[]
+  dailyStats: { date: string; created: number; completed: number; inProgress: number }[]
   categoryStats: { name: string; color: string; total: number; done: number }[]
   priorityStats: { priority: string; count: number }[]
   createdTasks: Task[]
   completedTasks: Task[]
+  inProgressTasks: Task[]
 }

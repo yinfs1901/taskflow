@@ -38,7 +38,7 @@ export default function WeeklyReport() {
     )
   }
 
-  const { summary, dailyStats, categoryStats, priorityStats, createdTasks, completedTasks, weekStart, weekEnd } = reportData
+  const { summary, dailyStats, categoryStats, priorityStats, createdTasks, completedTasks, inProgressTasks, weekStart, weekEnd } = reportData
   const weekLabel = `${weekStart} ~ ${weekEnd}`
   const isCurrentWeek = dayjs().startOf('isoWeek').format('YYYY-MM-DD') === dayjs(weekStart).format('YYYY-MM-DD')
 
@@ -49,6 +49,7 @@ export default function WeeklyReport() {
     fullDate: d.date,
     新建: d.created,
     完成: d.completed,
+    进行中: d.inProgress,
   }))
 
   return (
@@ -122,6 +123,7 @@ export default function WeeklyReport() {
                 />
                 <Bar dataKey="新建" fill="#89b4fa" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="完成" fill="#a6e3a1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="进行中" fill="#fab387" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -183,19 +185,6 @@ export default function WeeklyReport() {
           </Section>
         </div>
 
-        {/* Created Tasks */}
-        <Section title={`本周新建任务 (${createdTasks.length})`}>
-          {createdTasks.length === 0 ? (
-            <EmptyHint icon={<Plus size={20} />} text="本周暂无新建任务" />
-          ) : (
-            <div className="space-y-1">
-              {createdTasks.map((task) => (
-                <TaskRow key={task.id} task={task} />
-              ))}
-            </div>
-          )}
-        </Section>
-
         {/* Completed Tasks */}
         <Section title={`本周完成任务 (${completedTasks.length})`}>
           {completedTasks.length === 0 ? (
@@ -204,6 +193,32 @@ export default function WeeklyReport() {
             <div className="space-y-1">
               {completedTasks.map((task) => (
                 <TaskRow key={task.id} task={task} showCompletion />
+              ))}
+            </div>
+          )}
+        </Section>
+
+        {/* In-Progress Tasks */}
+        <Section title={`本周进行中任务 (${inProgressTasks.length})`}>
+          {inProgressTasks.length === 0 ? (
+            <EmptyHint icon={<Clock size={20} />} text="暂无进行中任务" />
+          ) : (
+            <div className="space-y-1">
+              {inProgressTasks.map((task) => (
+                <TaskRow key={task.id} task={task} />
+              ))}
+            </div>
+          )}
+        </Section>
+
+        {/* Created Tasks */}
+        <Section title={`本周新建任务 (${createdTasks.length})`}>
+          {createdTasks.length === 0 ? (
+            <EmptyHint icon={<Plus size={20} />} text="本周暂无新建任务" />
+          ) : (
+            <div className="space-y-1">
+              {createdTasks.map((task) => (
+                <TaskRow key={task.id} task={task} />
               ))}
             </div>
           )}
