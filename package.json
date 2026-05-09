@@ -37,7 +37,7 @@
   },
   "build": {
     "appId": "com.taskflow.app",
-    "productName": "TaskFlow",
+    "productName": "时序",
     "directories": {
       "output": "release"
     },

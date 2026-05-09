@@ -463,22 +463,22 @@ app.whenReady().then(() => {
   // Custom application menu
   const menuTemplate = [
     {
-      label: 'File',
+      label: '时序',
       submenu: [
         { role: 'quit', label: '退出' }
       ]
     },
     {
-      label: 'Help',
+      label: '帮助',
       submenu: [
         {
           label: '关于',
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: '关于 TaskFlow',
-              message: 'TaskFlow',
-              detail: `版本: V0.0.1\n\n任务管理系统`,
+              title: '关于 时序',
+              message: '时序',
+              detail: `版本: V0.0.1\n\n时间自有秩序，平衡日程节奏。`,
               buttons: ['确定']
             })
           }
