@@ -1,4 +1,4 @@
-export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 
 export interface Tag {
@@ -30,7 +30,9 @@ export interface Task {
   category_name?: string
   category_color?: string
   tags: Tag[]
-  assignees: Assignee[]
+  owner_id: string | null  // 领用人ID
+  accepted_at: string | null  // 领用时间
+  completed_at: string | null  // 实际完成时间
   created_at: string
   updated_at: string
 }
@@ -43,7 +45,6 @@ export interface TaskCreateInput {
   deadline?: string | null
   category_id?: string | null
   tag_ids?: string[]
-  assignees?: Assignee[]
 }
 
 export interface TaskUpdateInput {
@@ -54,7 +55,27 @@ export interface TaskUpdateInput {
   deadline?: string | null
   category_id?: string | null
   tag_ids?: string[]
-  assignees?: Assignee[]
+  owner_id?: string | null
+  accepted_at?: string | null
+  completed_at?: string | null
 }
 
-export type FilterType = 'all' | 'task_library' | 'today' | 'important' | 'done' | 'cancelled' | 'category'
+export type FilterType = 'task_library' | 'my_tasks' | 'today' | 'important' | 'done' | 'category' | 'calendar' | 'weekly_report'
+export type LibraryStatusFilter = 'all' | 'todo' | 'in_progress' | 'done'
+
+export interface WeeklyReportData {
+  weekStart: string
+  weekEnd: string
+  summary: {
+    created: number
+    completed: number
+    inProgress: number
+    overdue: number
+  }
+  dailyStats: { date: string; created: number; completed: number; inProgress: number }[]
+  categoryStats: { name: string; color: string; total: number; done: number }[]
+  priorityStats: { priority: string; count: number }[]
+  createdTasks: Task[]
+  completedTasks: Task[]
+  inProgressTasks: Task[]
+}

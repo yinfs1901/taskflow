@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTaskStore } from '../stores/taskStore'
-import { X, Plus, Trash2 } from 'lucide-react'
-import type { TaskPriority, TaskStatus, Assignee } from '../types'
+import { X } from 'lucide-react'
+import type { TaskPriority, TaskStatus } from '../types'
 import dayjs from 'dayjs'
 
 const priorities: { value: TaskPriority; label: string; color: string }[] = [
@@ -31,7 +31,6 @@ export default function TaskCreateModal({ open, onClose }: Props) {
   const [deadline, setDeadline] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
-  const [assignees, setAssignees] = useState<Assignee[]>([])
 
   if (!open) return null
 
@@ -45,7 +44,6 @@ export default function TaskCreateModal({ open, onClose }: Props) {
       deadline: deadline || null,
       category_id: categoryId || null,
       tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-      assignees: assignees.length > 0 ? assignees : undefined,
     })
     handleClose()
   }
@@ -58,7 +56,6 @@ export default function TaskCreateModal({ open, onClose }: Props) {
     setDeadline('')
     setCategoryId('')
     setSelectedTagIds([])
-    setAssignees([])
     onClose()
   }
 
@@ -67,20 +64,6 @@ export default function TaskCreateModal({ open, onClose }: Props) {
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     )
   }
-
-  const addAssignee = () => {
-    setAssignees(prev => [...prev, { name: '', ratio: 0 }])
-  }
-
-  const removeAssignee = (index: number) => {
-    setAssignees(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const updateAssignee = (index: number, field: 'name' | 'ratio', value: string | number) => {
-    setAssignees(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a))
-  }
-
-  const totalRatio = assignees.reduce((sum, a) => sum + (a.ratio || 0), 0)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -170,53 +153,6 @@ export default function TaskCreateModal({ open, onClose }: Props) {
                 className="w-full bg-[#313244] text-[#cdd6f4] text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-[#89b4fa]"
               />
             </div>
-          </div>
-
-          {/* Assignees */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-[#6c7086]">责任人</label>
-              <button
-                onClick={addAssignee}
-                className="flex items-center gap-0.5 text-xs text-[#89b4fa] hover:text-[#74c7ec] transition-colors"
-              >
-                <Plus size={12} /> 添加
-              </button>
-            </div>
-            {assignees.length > 0 && (
-              <div className="space-y-2">
-                {assignees.map((a, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <input
-                      value={a.name}
-                      onChange={e => updateAssignee(i, 'name', e.target.value)}
-                      placeholder="姓名"
-                      className="flex-1 bg-[#313244] text-[#cdd6f4] text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-[#89b4fa] placeholder-[#585b70]"
-                    />
-                    <div className="flex items-center gap-1 bg-[#313244] rounded-lg px-2 py-1.5">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={a.ratio || ''}
-                        onChange={e => updateAssignee(i, 'ratio', Number(e.target.value))}
-                        className="w-12 bg-transparent text-[#cdd6f4] text-sm text-right outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                      <span className="text-xs text-[#6c7086]">%</span>
-                    </div>
-                    <button
-                      onClick={() => removeAssignee(i)}
-                      className="text-[#6c7086] hover:text-[#f38ba8] transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-                {totalRatio > 0 && totalRatio !== 100 && (
-                  <p className="text-xs text-[#f9e2af]">当前比例合计 {totalRatio}%，建议合计 100%</p>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Category */}

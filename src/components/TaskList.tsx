@@ -2,6 +2,7 @@ import { useTaskStore } from '../stores/taskStore'
 import TaskItem from './TaskItem'
 import TaskCreateModal from './TaskCreateModal'
 import { Plus, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { LibraryStatusFilter } from '../types'
 import { useState } from 'react'
 
 const sortOptions = [
@@ -13,16 +14,22 @@ const sortOptions = [
 
 const filterLabels: Record<string, string> = {
   task_library: '任务库',
-  all: '全部任务',
+  my_tasks: '我的任务',
   today: '今天到期',
   important: '重要',
   done: '已完成',
-  cancelled: '已取消',
   category: '分类',
 }
 
+const libraryStatusOptions: { value: LibraryStatusFilter; label: string }[] = [
+  { value: 'todo', label: '待办' },
+  { value: 'in_progress', label: '进行中' },
+  { value: 'done', label: '已完成' },
+  { value: 'all', label: '所有' },
+]
+
 export default function TaskList() {
-  const { tasks, activeFilter, activeCategoryId, categories, selectedTaskId, selectTask, orderBy, setOrderBy, currentPage, pageSize, setPage, setPageSize } = useTaskStore()
+  const { tasks, activeFilter, activeCategoryId, categories, selectedTaskId, selectTask, orderBy, setOrderBy, currentPage, pageSize, setPage, setPageSize, libraryStatus, setLibraryStatus } = useTaskStore()
   const [showSort, setShowSort] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
@@ -30,48 +37,69 @@ export default function TaskList() {
     ? categories.find(c => c.id === activeCategoryId)?.name || '分类'
     : filterLabels[activeFilter]
 
-  // Pagination
+  const showLibraryTabs = activeFilter === 'task_library'
+
   const totalPages = Math.ceil(tasks.length / pageSize)
   const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const visibleTasks = tasks.slice(startIndex, endIndex)
+  const visibleTasks = tasks.slice(startIndex, startIndex + pageSize)
 
   return (
     <main className="flex-1 flex flex-col bg-[#1e1e2e] min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#313244]">
-        <h2 className="text-lg font-semibold text-[#cdd6f4]">{filterLabel}</h2>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <button
-              onClick={() => setShowSort(!showSort)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-sm text-[#a6adc8] hover:bg-[#313244] hover:text-[#cdd6f4]"
-            >
-              <ArrowUpDown size={14} />
-              排序
-            </button>
-            {showSort && (
-              <div className="absolute right-0 top-full mt-1 bg-[#313244] border border-[#45475a] rounded-lg shadow-lg z-10 py-1 min-w-[120px]">
-                {sortOptions.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => { setOrderBy(opt.value); setShowSort(false) }}
-                    className={`w-full text-left px-3 py-1.5 text-sm ${orderBy === opt.value ? 'text-[#89b4fa]' : 'text-[#a6adc8] hover:bg-[#45475a]'}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+      <div className="flex flex-col border-b border-[#313244]">
+        <div className="flex items-center justify-between px-6 py-3">
+          <h2 className="text-lg font-semibold text-[#cdd6f4]">{filterLabel}</h2>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button
+                onClick={() => setShowSort(!showSort)}
+                className="flex items-center gap-1 px-2 py-1 rounded text-sm text-[#a6adc8] hover:bg-[#313244] hover:text-[#cdd6f4]"
+              >
+                <ArrowUpDown size={14} />
+                排序
+              </button>
+              {showSort && (
+                <div className="absolute right-0 top-full mt-1 bg-[#313244] border border-[#45475a] rounded-lg shadow-lg z-10 py-1 min-w-[120px]">
+                  {sortOptions.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { setOrderBy(opt.value); setShowSort(false) }}
+                      className={`w-full text-left px-3 py-1.5 text-sm ${orderBy === opt.value ? 'text-[#89b4fa]' : 'text-[#a6adc8] hover:bg-[#45475a]'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {activeFilter === 'task_library' && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#89b4fa] text-[#1e1e2e] rounded-lg text-sm font-medium hover:bg-[#74c7ec] transition-colors"
+              >
+                <Plus size={14} />
+                新建
+              </button>
             )}
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#89b4fa] text-[#1e1e2e] rounded-lg text-sm font-medium hover:bg-[#74c7ec] transition-colors"
-          >
-            <Plus size={14} />
-            新建
-          </button>
         </div>
+        {showLibraryTabs && (
+          <div className="flex items-center gap-1 px-6 pb-2">
+            {libraryStatusOptions.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setLibraryStatus(opt.value)}
+                className={`px-3 py-1 rounded text-sm transition-colors ${
+                  libraryStatus === opt.value
+                    ? 'bg-[#89b4fa] text-[#1e1e2e] font-medium'
+                    : 'text-[#a6adc8] hover:bg-[#313244] hover:text-[#cdd6f4]'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Task list */}

@@ -1,13 +1,12 @@
 import { useTaskStore } from '../stores/taskStore'
 import type { Task } from '../types'
-import { Circle, CheckCircle2, Clock, Flag } from 'lucide-react'
+import { Circle, CheckCircle2, Clock, Flag, CheckCircle } from 'lucide-react'
 import dayjs from 'dayjs'
 
 const statusIcons: Record<string, typeof Circle> = {
   todo: Circle,
   in_progress: Clock,
   done: CheckCircle2,
-  cancelled: Circle,
 }
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
@@ -68,9 +67,17 @@ export default function TaskItem({ task, isSelected, onSelect }: Props) {
 
           {/* Deadline */}
           {task.deadline && (
-            <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'overdue' : 'text-[#6c7086]'}`}>
+            <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-[#f38ba8]' : 'text-[#6c7086]'}`}>
               <Clock size={11} />
               {dayjs(task.deadline).format('MM-DD')}
+            </span>
+          )}
+
+          {/* Completed at */}
+          {task.completed_at && (
+            <span className="text-xs flex items-center gap-1 text-[#a6e3a1]">
+              <CheckCircle size={11} />
+              {dayjs(task.completed_at).format('MM-DD HH:mm')}
             </span>
           )}
 

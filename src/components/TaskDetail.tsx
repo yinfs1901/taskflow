@@ -1,8 +1,8 @@
 import { useTaskStore } from '../stores/taskStore'
-import { X, Flag, Calendar, Tag, Folder, Users, Plus, Trash2, Ban } from 'lucide-react'
+import { X, Flag, Calendar, Tag, Folder, UserPlus, CheckCircle, Trash2, Save, ArrowRight, RotateCcw } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
-import type { TaskPriority, TaskStatus, Assignee } from '../types'
+import type { TaskPriority, TaskStatus } from '../types'
 
 const priorities: { value: TaskPriority; label: string; color: string }[] = [
   { value: 'low', label: '低', color: '#a6e3a1' },
@@ -15,7 +15,6 @@ const statuses: { value: TaskStatus; label: string; color: string }[] = [
   { value: 'todo', label: '待办', color: '#6c7086' },
   { value: 'in_progress', label: '进行中', color: '#89b4fa' },
   { value: 'done', label: '已完成', color: '#a6e3a1' },
-  { value: 'cancelled', label: '已取消', color: '#45475a' },
 ]
 
 export default function TaskDetail() {
@@ -24,13 +23,11 @@ export default function TaskDetail() {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [assignees, setAssignees] = useState<Assignee[]>([])
 
   useEffect(() => {
     if (task) {
       setTitle(task.title)
       setDescription(task.description)
-      setAssignees(task.assignees || [])
     }
   }, [task?.id])
 
@@ -43,7 +40,7 @@ export default function TaskDetail() {
   }
 
   const isOverdue = task.deadline && dayjs(task.deadline).isBefore(dayjs(), 'day')
-    && task.status !== 'done' && task.status !== 'cancelled'
+    && task.status !== 'done'
 
   const handleTitleBlur = () => {
     if (title.trim() && title !== task!.title) {
@@ -61,8 +58,21 @@ export default function TaskDetail() {
     deleteTask(task!.id)
   }
 
-  const handleCancel = () => {
-    updateTask(task!.id, { status: 'cancelled' })
+  const handleReject = () => {
+    updateTask(task!.id, { status: 'todo', owner_id: null, accepted_at: null })
+  }
+
+  const handleComplete = () => {
+    updateTask(task!.id, { status: 'done', completed_at: new Date().toISOString() })
+  }
+
+  const handleClaim = () => {
+    const now = new Date().toISOString()
+    updateTask(task!.id, {
+      status: 'in_progress',
+      owner_id: 'current-user',
+      accepted_at: now
+    })
   }
 
   const handleToggleTag = (tagId: string) => {
@@ -72,26 +82,6 @@ export default function TaskDetail() {
       : [...currentTagIds, tagId]
     updateTask(task!.id, { tag_ids: newTagIds })
   }
-
-  const addAssignee = () => {
-    setAssignees(prev => [...prev, { name: '', ratio: 0 }])
-  }
-
-  const removeAssignee = (index: number) => {
-    const next = assignees.filter((_, i) => i !== index)
-    setAssignees(next)
-    updateTask(task!.id, { assignees: next })
-  }
-
-  const updateAssignee = (index: number, field: 'name' | 'ratio', value: string | number) => {
-    setAssignees(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a))
-  }
-
-  const saveAssignees = () => {
-    updateTask(task!.id, { assignees })
-  }
-
-  const totalRatio = assignees.reduce((sum, a) => sum + (a.ratio || 0), 0)
 
   return (
     <aside className="w-80 flex-shrink-0 bg-[#181825] border-l border-[#313244] flex flex-col">
@@ -162,9 +152,9 @@ export default function TaskDetail() {
           </div>
         </div>
 
-        {/* Created time + Deadline */}
-        <div className="flex gap-3">
-          <div className="flex-1">
+        {/* Created time + Accepted time + Completed time + Deadline */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
             <label className="text-xs text-[#6c7086] mb-1 block">创建时间</label>
             <input
               type="text"
@@ -173,9 +163,31 @@ export default function TaskDetail() {
               className="w-full bg-[#313244]/60 text-[#a6adc8] text-xs rounded px-2 py-1.5 cursor-not-allowed"
             />
           </div>
-          <div className="flex-1">
+          <div>
             <label className="text-xs text-[#6c7086] mb-1 flex items-center gap-1">
-              <Calendar size={11} /> 完成时间
+              <UserPlus size={11} /> 接受时间
+            </label>
+            <input
+              type="text"
+              value={task!.accepted_at ? dayjs(task!.accepted_at).format('YYYY-MM-DD HH:mm') : '未领用'}
+              readOnly
+              className={`w-full text-xs rounded px-2 py-1.5 cursor-not-allowed ${task!.accepted_at ? 'bg-[#313244]/60 text-[#a6adc8]' : 'bg-[#313244]/30 text-[#585b70]'}`}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#6c7086] mb-1 flex items-center gap-1">
+              <CheckCircle size={11} /> 实际完成时间
+            </label>
+            <input
+              type="text"
+              value={task!.completed_at ? dayjs(task!.completed_at).format('YYYY-MM-DD HH:mm') : '-'}
+              readOnly
+              className="w-full bg-[#313244]/60 text-[#a6adc8] text-xs rounded px-2 py-1.5 cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#6c7086] mb-1 flex items-center gap-1">
+              <Calendar size={11} /> 计划完成时间
             </label>
             <input
               type="date"
@@ -184,54 +196,6 @@ export default function TaskDetail() {
               className="w-full bg-[#313244] text-[#cdd6f4] text-xs rounded px-2 py-1.5 outline-none focus:ring-1 focus:ring-[#89b4fa]"
             />
           </div>
-        </div>
-
-        {/* Assignees */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-xs text-[#6c7086] flex items-center gap-1">
-              <Users size={11} /> 责任人
-            </label>
-            <button
-              onClick={addAssignee}
-              className="flex items-center gap-0.5 text-xs text-[#89b4fa] hover:text-[#74c7ec]"
-            >
-              <Plus size={11} /> 添加
-            </button>
-          </div>
-          {assignees.length > 0 && (
-            <div className="space-y-1.5">
-              {assignees.map((a, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <input
-                    value={a.name}
-                    onChange={e => updateAssignee(i, 'name', e.target.value)}
-                    onBlur={saveAssignees}
-                    placeholder="姓名"
-                    className="flex-1 bg-[#313244] text-[#cdd6f4] text-xs rounded px-2 py-1 outline-none focus:ring-1 focus:ring-[#89b4fa] placeholder-[#585b70]"
-                  />
-                  <div className="flex items-center gap-0.5 bg-[#313244] rounded px-1.5 py-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={a.ratio || ''}
-                      onChange={e => updateAssignee(i, 'ratio', Number(e.target.value))}
-                      onBlur={saveAssignees}
-                      className="w-10 bg-transparent text-[#cdd6f4] text-xs text-right outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span className="text-[10px] text-[#6c7086]">%</span>
-                  </div>
-                  <button onClick={() => removeAssignee(i)} className="text-[#6c7086] hover:text-[#f38ba8]">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-              {totalRatio > 0 && totalRatio !== 100 && (
-                <p className="text-[10px] text-[#f9e2af]">合计 {totalRatio}%</p>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Category */}
@@ -292,24 +256,58 @@ export default function TaskDetail() {
         </div>
       </div>
 
-      {/* Footer — buttons side by side */}
+      {/* Footer — buttons by status */}
       <div className="px-4 py-3 border-t border-[#313244]">
-        <div className="flex gap-2">
-          {task!.status !== 'cancelled' && task!.status !== 'done' && (
+        {task!.status === 'todo' && (
+          <div className="flex gap-2">
             <button
-              onClick={handleCancel}
-              className="flex-1 py-1.5 rounded text-sm text-[#f9e2af] hover:bg-[#f9e2af]/10 transition-colors flex items-center justify-center gap-1.5"
+              onClick={handleClaim}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#89b4fa] text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors flex items-center justify-center gap-1.5"
             >
-              <Ban size={14} /> 取消任务
+              <ArrowRight size={14} /> 领用
             </button>
-          )}
-          <button
-            onClick={handleDelete}
-            className="flex-1 py-1.5 rounded text-sm text-[#f38ba8] hover:bg-[#f38ba8]/10 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Trash2 size={14} /> 删除任务
-          </button>
-        </div>
+            <button
+              onClick={() => {
+                handleTitleBlur()
+                handleDescBlur()
+              }}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Save size={14} /> 更新
+            </button>
+            <button
+              onClick={handleDelete}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#f38ba8]/15 text-[#f38ba8] hover:bg-[#f38ba8]/25 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Trash2 size={14} /> 删除
+            </button>
+          </div>
+        )}
+        {task!.status === 'in_progress' && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleComplete}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#a6e3a1] text-[#1e1e2e] hover:bg-[#94e2d5] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <CheckCircle size={14} /> 完成
+            </button>
+            <button
+              onClick={() => {
+                handleTitleBlur()
+                handleDescBlur()
+              }}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#89b4fa] text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Save size={14} /> 更新
+            </button>
+            <button
+              onClick={handleReject}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#45475a] text-[#a6adc8] hover:bg-[#585b70] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <RotateCcw size={14} /> 驳回
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   )

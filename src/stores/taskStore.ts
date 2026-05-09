@@ -1,5 +1,9 @@
 import { create } from 'zustand'
-import type { Task, Category, Tag, TaskCreateInput, TaskUpdateInput, FilterType } from '../types'
+import dayjs from 'dayjs'
+import type { Task, Category, Tag, TaskCreateInput, TaskUpdateInput, FilterType, LibraryStatusFilter, WeeklyReportData } from '../types'
+import isoWeek from 'dayjs/plugin/isoWeek'
+
+dayjs.extend(isoWeek)
 
 const api = window.api
 
@@ -15,6 +19,12 @@ interface TaskStore {
   orderBy: string
   pageSize: number
   currentPage: number
+  libraryStatus: LibraryStatusFilter
+  calendarTasks: Task[]
+  calendarDate: string  // ISO date for current view anchor (first day of month/week)
+  calendarViewMode: 'month' | 'week' | 'year'
+  weekAnchor: string   // ISO date, Monday of current week
+  reportData: WeeklyReportData | null
 
   // Actions
   loadTasks: () => Promise<void>
@@ -30,6 +40,12 @@ interface TaskStore {
   setOrderBy: (orderBy: string) => Promise<void>
   setPage: (page: number) => void
   setPageSize: (size: number) => void
+  setLibraryStatus: (status: LibraryStatusFilter) => void
+  loadCalendar: () => Promise<void>
+  setCalendarView: (mode: 'month' | 'week' | 'year') => void
+  navigateCalendar: (dir: 'prev' | 'next') => void
+  loadWeeklyReport: () => Promise<void>
+  navigateWeek: (dir: 'prev' | 'next') => void
   createCategory: (name: string, color: string) => Promise<void>
   deleteCategory: (id: string) => Promise<void>
   createTag: (name: string, color: string) => Promise<void>
@@ -48,15 +64,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   orderBy: 'deadline ASC',
   pageSize: 20,
   currentPage: 1,
+  libraryStatus: 'todo',
+  calendarTasks: [],
+  calendarDate: dayjs().startOf('month').format('YYYY-MM-DD'),
+  calendarViewMode: 'month',
+  weekAnchor: dayjs().startOf('isoWeek').format('YYYY-MM-DD'),
+  reportData: null,
 
   loadTasks: async () => {
-    const { activeFilter, activeCategoryId, searchQuery, orderBy } = get()
+    const { activeFilter, activeCategoryId, searchQuery, orderBy, libraryStatus } = get()
     const filters: any = { orderBy }
     if (activeFilter === 'today') filters.today = true
     else if (activeFilter === 'important') filters.important = true
     else if (activeFilter === 'done') filters.status = 'done'
-    else if (activeFilter === 'cancelled') filters.status = 'cancelled'
-    else if (activeFilter === 'task_library') filters.task_library = true
+    else if (activeFilter === 'task_library') {
+      if (libraryStatus !== 'all') filters.status = libraryStatus
+    }
+    else if (activeFilter === 'my_tasks') filters.my_tasks = true
     if (activeFilter === 'category' && activeCategoryId) filters.category_id = activeCategoryId
     if (searchQuery) filters.search = searchQuery
     const tasks = await api.taskList(filters)
@@ -150,5 +174,55 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   setPageSize: (size) => {
     set({ pageSize: size, currentPage: 1 })
+  },
+
+  setLibraryStatus: (status) => {
+    set({ libraryStatus: status, selectedTaskId: null, selectedTask: null })
+    get().loadTasks()
+  },
+
+  loadCalendar: async () => {
+    const { calendarDate, calendarViewMode } = get()
+    const d = dayjs(calendarDate)
+    const filters: any = { year: d.year() }
+    if (calendarViewMode === 'month') {
+      filters.month = d.month() + 1
+    }
+    const tasks = await api.taskCalendar(filters)
+    set({ calendarTasks: tasks })
+  },
+
+  setCalendarView: (mode) => {
+    set({ calendarViewMode: mode })
+    get().loadCalendar()
+  },
+
+  navigateCalendar: (dir) => {
+    const { calendarDate, calendarViewMode } = get()
+    const d = dayjs(calendarDate)
+    let next: dayjs.Dayjs
+    if (calendarViewMode === 'year') {
+      next = dir === 'prev' ? d.subtract(1, 'year') : d.add(1, 'year')
+    } else if (calendarViewMode === 'month') {
+      next = dir === 'prev' ? d.subtract(1, 'month') : d.add(1, 'month')
+    } else {
+      next = dir === 'prev' ? d.subtract(1, 'week') : d.add(1, 'week')
+    }
+    set({ calendarDate: next.format('YYYY-MM-DD') })
+    get().loadCalendar()
+  },
+
+  loadWeeklyReport: async () => {
+    const { weekAnchor } = get()
+    const data = await api.weeklyReport(weekAnchor)
+    set({ reportData: data })
+  },
+
+  navigateWeek: (dir) => {
+    const { weekAnchor } = get()
+    const d = dayjs(weekAnchor)
+    const next = dir === 'prev' ? d.subtract(1, 'week') : d.add(1, 'week')
+    set({ weekAnchor: next.format('YYYY-MM-DD') })
+    get().loadWeeklyReport()
   },
 }))
