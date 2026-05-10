@@ -1,11 +1,11 @@
 import { useTaskStore } from '../stores/taskStore'
-import { Inbox, Calendar, Star, CheckCircle, Folder, Plus, X, Search, Library, User, FileText } from 'lucide-react'
-import { useState } from 'react'
+import { Inbox, Calendar, Star, CheckCircle, Folder, Plus, X, Search, Library, User, FileText, Clock } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 const filterItems = [
   { key: 'task_library' as const, label: '任务库', icon: Library, color: '#89dceb' },
   { key: 'my_tasks' as const, label: '我的任务', icon: User, color: '#cba6f7' },
-  { key: 'today' as const, label: '今天到期', icon: Calendar, color: '#a6e3a1' },
+  { key: 'today' as const, label: '今天到期', icon: Clock, color: '#a6e3a1' },
   { key: 'important' as const, label: '重要', icon: Star, color: '#fab387' },
   { key: 'done' as const, label: '已完成', icon: CheckCircle, color: '#6c7086' },
   { key: 'calendar' as const, label: '日历', icon: Calendar, color: '#f5c2e7' },
@@ -13,9 +13,11 @@ const filterItems = [
 ]
 
 export default function Sidebar() {
-  const { activeFilter, activeCategoryId, categories, setFilter, setCategory, createCategory, deleteCategory, searchQuery, setSearch } = useTaskStore()
+  const { activeFilter, activeCategoryId, categories, setFilter, setCategory, createCategory, deleteCategory, searchQuery, setSearch, taskCounts, loadCounts } = useTaskStore()
   const [newCatName, setNewCatName] = useState('')
   const [showCatInput, setShowCatInput] = useState(false)
+
+  useEffect(() => { loadCounts() }, [])
 
   const handleAddCategory = () => {
     if (!newCatName.trim()) return
@@ -44,7 +46,13 @@ export default function Sidebar() {
 
       {/* Filters */}
       <nav className="px-2">
-        {filterItems.map(({ key, label, icon: Icon, color }) => (
+        {filterItems.map(({ key, label, icon: Icon, color }) => {
+          const count = key === 'my_tasks' ? taskCounts?.my_tasks
+            : key === 'today' ? taskCounts?.today
+            : key === 'important' ? taskCounts?.important
+            : key === 'done' ? taskCounts?.done
+            : undefined
+          return (
           <button
             key={key}
             onClick={() => setFilter(key)}
@@ -55,9 +63,14 @@ export default function Sidebar() {
             }`}
           >
             <Icon size={16} style={{ color }} />
-            {label}
+            <span className="flex-1 text-left">{label}</span>
+            {count !== undefined && count > 0 && (
+              <span className="text-xs bg-[#313244] text-[#6c7086] px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                {count}
+              </span>
+            )}
           </button>
-        ))}
+        )})}
       </nav>
 
       {/* Categories */}

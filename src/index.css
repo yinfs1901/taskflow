@@ -60,18 +60,4 @@ body {
   background: var(--text-muted);
 }
 
-/* Priority colors */
-.priority-urgent { color: #f38ba8; }
-.priority-high { color: #fab387; }
-.priority-medium { color: #f9e2af; }
-.priority-low { color: #a6e3a1; }
 
-.priority-dot-urgent { background: #f38ba8; }
-.priority-dot-high { background: #fab387; }
-.priority-dot-medium { background: #f9e2af; }
-.priority-dot-low { background: #a6e3a1; }
-
-.overdue {
-  color: var(--danger) !important;
-  font-weight: 600;
-}

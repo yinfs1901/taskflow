@@ -119,10 +119,13 @@ ipcMain.handle('task:list', (_, filters) => {
     }
   }
 
-  // 任务库默认按创建时间倒序，其他按指定排序
+  // 任务库默认按创建时间倒序，已完成按完成时间倒序，其他按指定排序
   let orderBy = filters?.orderBy || 'deadline ASC'
   if (filters?.task_library) {
     orderBy = 'created_at DESC'
+  }
+  if (filters?.status === 'done') {
+    orderBy = 't.completed_at DESC'
   }
   if (!filters?.id) sql += ` ORDER BY ${orderBy}`
 
@@ -182,6 +185,15 @@ ipcMain.handle('task:update', (_, id, updates) => {
 ipcMain.handle('task:delete', (_, id) => {
   db.prepare(`DELETE FROM tasks WHERE id = ?`).run(id)
   return { success: true }
+})
+
+// --- IPC: Counts ---
+ipcMain.handle('task:counts', () => {
+  const myTasks = db.prepare(`SELECT COUNT(*) as cnt FROM tasks WHERE owner_id IS NOT NULL AND status = 'in_progress'`).get().cnt
+  const today = db.prepare(`SELECT COUNT(*) as cnt FROM tasks WHERE date(deadline) = date('now','localtime') AND status != 'done'`).get().cnt
+  const important = db.prepare(`SELECT COUNT(*) as cnt FROM tasks WHERE priority IN ('high','urgent') AND status != 'done'`).get().cnt
+  const done = db.prepare(`SELECT COUNT(*) as cnt FROM tasks WHERE status = 'done'`).get().cnt
+  return { my_tasks: myTasks, today, important, done }
 })
 
 // --- IPC: Calendar ---
