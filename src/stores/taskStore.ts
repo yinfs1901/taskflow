@@ -25,6 +25,7 @@ interface TaskStore {
   calendarViewMode: 'month' | 'week' | 'year'
   weekAnchor: string   // ISO date, Monday of current week
   reportData: WeeklyReportData | null
+  taskCounts: { my_tasks: number; today: number; important: number; done: number } | null
 
   // Actions
   loadTasks: () => Promise<void>
@@ -46,6 +47,7 @@ interface TaskStore {
   navigateCalendar: (dir: 'prev' | 'next') => void
   loadWeeklyReport: () => Promise<void>
   navigateWeek: (dir: 'prev' | 'next') => void
+  loadCounts: () => Promise<void>
   createCategory: (name: string, color: string) => Promise<void>
   deleteCategory: (id: string) => Promise<void>
   createTag: (name: string, color: string) => Promise<void>
@@ -70,6 +72,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   calendarViewMode: 'month',
   weekAnchor: dayjs().startOf('isoWeek').format('YYYY-MM-DD'),
   reportData: null,
+  taskCounts: null,
+
+  loadCounts: async () => {
+    try {
+      const counts = await api.taskCounts()
+      set({ taskCounts: counts })
+    } catch {} // non-critical, fail silently
+  },
 
   loadTasks: async () => {
     const { activeFilter, activeCategoryId, searchQuery, orderBy, libraryStatus } = get()
@@ -85,6 +95,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     if (searchQuery) filters.search = searchQuery
     const tasks = await api.taskList(filters)
     set({ tasks, currentPage: 1 })
+    get().loadCounts()
   },
 
   loadCategories: async () => {
@@ -114,6 +125,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     await api.taskDelete(id)
     set({ selectedTaskId: null, selectedTask: null })
     await get().loadTasks()
+    get().loadCounts()
   },
 
   setFilter: (filter) => {

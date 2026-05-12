@@ -1,28 +1,11 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import dayjs from 'dayjs'
-import { ChevronLeft, ChevronRight, Calendar, X, Flag, Tag, Folder, CheckCircle, ArrowRight, Save, Trash2, RotateCcw, UserPlus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, X, Flag, Tag as TagIcon, Folder, CheckCircle, ArrowRight, Save, Trash2, RotateCcw, UserPlus } from 'lucide-react'
 import { useTaskStore } from '../stores/taskStore'
-import type { Task, TaskPriority, TaskStatus, Category } from '../types'
+import type { Task, TaskPriority, TaskStatus, Category, Tag, TaskUpdateInput } from '../types'
+import { PRIORITY_OPTIONS, STATUS_OPTIONS, CALENDAR_STATUS_COLORS } from '../constants'
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
-const STATUS_COLORS: Record<string, string> = {
-  todo: '#89dceb',
-  in_progress: '#cba6f7',
-  done: '#a6e3a1',
-}
-
-const PRIORITIES: { value: TaskPriority; label: string; color: string }[] = [
-  { value: 'low', label: '低', color: '#a6e3a1' },
-  { value: 'medium', label: '中', color: '#f9e2af' },
-  { value: 'high', label: '高', color: '#fab387' },
-  { value: 'urgent', label: '紧急', color: '#f38ba8' },
-]
-
-const STATUSES: { value: TaskStatus; label: string; color: string }[] = [
-  { value: 'todo', label: '待办', color: '#6c7086' },
-  { value: 'in_progress', label: '进行中', color: '#89b4fa' },
-  { value: 'done', label: '已完成', color: '#a6e3a1' },
-]
 
 export default function CalendarView() {
   const { calendarDate, calendarViewMode, calendarTasks, loadCalendar, setCalendarView, navigateCalendar, categories, tags, updateTask, deleteTask } = useTaskStore()
@@ -154,8 +137,8 @@ export default function CalendarView() {
                 onClick={() => { setPopupDate(null); setPopupAnchor(null); openDetail(task) }}
                 className="w-full text-left text-xs leading-tight px-2 py-1.5 rounded hover:bg-[#313244] transition-colors"
                 style={{
-                  borderLeft: `3px solid ${STATUS_COLORS[task.status] || '#6c7086'}`,
-                  color: STATUS_COLORS[task.status] || '#6c7086',
+                  borderLeft: `3px solid ${CALENDAR_STATUS_COLORS[task.status] || '#6c7086'}`,
+                  color: CALENDAR_STATUS_COLORS[task.status] || '#6c7086',
                 }}
               >
                 <div className="text-[#cdd6f4] truncate">{task.title}</div>
@@ -227,8 +210,8 @@ function MonthView({ d, tasksByDate, todayStr, onOpenDetail, onOpenPopup }: {
                     onClick={(e) => { e.stopPropagation(); onOpenDetail(task) }}
                     className="text-[10px] leading-tight truncate px-1 py-0.5 rounded w-full text-left hover:brightness-110 transition-all"
                     style={{
-                      backgroundColor: `${STATUS_COLORS[task.status] || '#6c7086'}20`,
-                      color: STATUS_COLORS[task.status] || '#6c7086',
+                      backgroundColor: `${CALENDAR_STATUS_COLORS[task.status] || '#6c7086'}20`,
+                      color: CALENDAR_STATUS_COLORS[task.status] || '#6c7086',
                     }}
                   >
                     {task.title}
@@ -298,12 +281,12 @@ function WeekView({ d, tasksByDate, todayStr, onOpenDetail }: {
                     onClick={() => onOpenDetail(task)}
                     className="w-full text-left text-xs leading-snug px-2 py-1.5 rounded hover:brightness-110 transition-all"
                     style={{
-                      backgroundColor: `${STATUS_COLORS[task.status] || '#6c7086'}15`,
-                      borderLeft: `3px solid ${STATUS_COLORS[task.status] || '#6c7086'}`,
+                      backgroundColor: `${CALENDAR_STATUS_COLORS[task.status] || '#6c7086'}15`,
+                      borderLeft: `3px solid ${CALENDAR_STATUS_COLORS[task.status] || '#6c7086'}`,
                     }}
                   >
                     <div className="text-[#cdd6f4] truncate font-medium">{task.title}</div>
-                    <div className="text-[10px]" style={{ color: STATUS_COLORS[task.status] }}>
+                    <div className="text-[10px]" style={{ color: CALENDAR_STATUS_COLORS[task.status] }}>
                       {task.status === 'todo' ? '待办' : task.status === 'in_progress' ? '进行中' : '已完成'}
                     </div>
                   </button>
@@ -323,7 +306,7 @@ function TaskDetailModal({ task, categories, tags, onClose, onUpdate, onDelete }
   categories: Category[]
   tags: Tag[]
   onClose: () => void
-  onUpdate: (id: string, updates: any) => void
+  onUpdate: (id: string, updates: TaskUpdateInput) => void
   onDelete: (id: string) => void
 }) {
   const [title, setTitle] = useState(task.title)
@@ -384,7 +367,7 @@ function TaskDetailModal({ task, categories, tags, onClose, onUpdate, onDelete }
           <div>
             <label className="text-xs text-[#6c7086] mb-1 block">状态</label>
             <div className="flex gap-1 flex-wrap">
-              {STATUSES.map(s => (
+              {STATUS_OPTIONS.map(s => (
                 <button
                   key={s.value}
                   onClick={() => onUpdate(task.id, { status: s.value })}
@@ -403,7 +386,7 @@ function TaskDetailModal({ task, categories, tags, onClose, onUpdate, onDelete }
           <div>
             <label className="text-xs text-[#6c7086] mb-1 flex items-center gap-1"><Flag size={11} /> 优先级</label>
             <div className="flex gap-1 flex-wrap">
-              {PRIORITIES.map(p => (
+              {PRIORITY_OPTIONS.map(p => (
                 <button
                   key={p.value}
                   onClick={() => onUpdate(task.id, { priority: p.value })}
@@ -456,7 +439,7 @@ function TaskDetailModal({ task, categories, tags, onClose, onUpdate, onDelete }
 
           {/* Tags */}
           <div>
-            <label className="text-xs text-[#6c7086] mb-1 flex items-center gap-1"><Tag size={11} /> 标签</label>
+            <label className="text-xs text-[#6c7086] mb-1 flex items-center gap-1"><TagIcon size={11} /> 标签</label>
             <div className="flex flex-wrap gap-1">
               {tags.map(tag => (
                 <button key={tag.id} onClick={() => handleToggleTag(tag.id)}

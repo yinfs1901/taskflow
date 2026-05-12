@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   taskDelete: (id) => ipcRenderer.invoke('task:delete', id),
   taskCalendar: (filters) => ipcRenderer.invoke('task:calendar', filters),
   weeklyReport: (weekStart) => ipcRenderer.invoke('task:weekly-report', weekStart),
+  taskCounts: () => ipcRenderer.invoke('task:counts'),
 
   // Categories
   categoryList: () => ipcRenderer.invoke('category:list'),

@@ -3,19 +3,7 @@ import { X, Flag, Calendar, Tag, Folder, UserPlus, CheckCircle, Trash2, Save, Ar
 import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
 import type { TaskPriority, TaskStatus } from '../types'
-
-const priorities: { value: TaskPriority; label: string; color: string }[] = [
-  { value: 'low', label: '低', color: '#a6e3a1' },
-  { value: 'medium', label: '中', color: '#f9e2af' },
-  { value: 'high', label: '高', color: '#fab387' },
-  { value: 'urgent', label: '紧急', color: '#f38ba8' },
-]
-
-const statuses: { value: TaskStatus; label: string; color: string }[] = [
-  { value: 'todo', label: '待办', color: '#6c7086' },
-  { value: 'in_progress', label: '进行中', color: '#89b4fa' },
-  { value: 'done', label: '已完成', color: '#a6e3a1' },
-]
+import { PRIORITY_OPTIONS, STATUS_OPTIONS, PRIORITY_MAP, STATUS_MAP } from '../constants'
 
 export default function TaskDetail() {
   const { selectedTaskId, selectedTask, categories, tags, updateTask, deleteTask, selectTask } = useTaskStore()
@@ -60,6 +48,10 @@ export default function TaskDetail() {
 
   const handleReject = () => {
     updateTask(task!.id, { status: 'todo', owner_id: null, accepted_at: null })
+  }
+
+  const handleContinue = () => {
+    updateTask(task!.id, { status: 'in_progress', completed_at: null })
   }
 
   const handleComplete = () => {
@@ -112,7 +104,7 @@ export default function TaskDetail() {
         <div>
           <label className="text-xs text-[#6c7086] mb-1 block">状态</label>
           <div className="flex gap-1 flex-wrap">
-            {statuses.map(s => (
+            {STATUS_OPTIONS.map(s => (
               <button
                 key={s.value}
                 onClick={() => updateTask(task!.id, { status: s.value })}
@@ -135,7 +127,7 @@ export default function TaskDetail() {
             <Flag size={11} /> 优先级
           </label>
           <div className="flex gap-1 flex-wrap">
-            {priorities.map(p => (
+            {PRIORITY_OPTIONS.map(p => (
               <button
                 key={p.value}
                 onClick={() => updateTask(task!.id, { priority: p.value })}
@@ -221,24 +213,26 @@ export default function TaskDetail() {
             <Tag size={11} /> 标签
           </label>
           <div className="flex flex-wrap gap-1">
-            {tags.map(tag => (
+            {tags.map(tag => {
+              const isSelected = task!.tags.some(t => t.id === tag.id)
+              return (
               <button
                 key={tag.id}
                 onClick={() => handleToggleTag(tag.id)}
-                className={`text-xs px-2 py-0.5 rounded transition-colors ${
-                  task!.tags.some(t => t.id === tag.id)
-                    ? 'ring-1'
+                className={`text-xs px-2 py-0.5 rounded ring-1 ring-transparent transition-all ${
+                  isSelected
+                    ? 'opacity-100'
                     : 'opacity-50 hover:opacity-100'
                 }`}
                 style={{
                   backgroundColor: tag.color + '20',
                   color: tag.color,
-                  ringColor: tag.color,
-                }}
+                  '--tw-ring-color': isSelected ? tag.color : 'transparent',
+                } as React.CSSProperties}
               >
                 {tag.name}
               </button>
-            ))}
+            )})}
           </div>
         </div>
 
@@ -305,6 +299,31 @@ export default function TaskDetail() {
               className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#45475a] text-[#a6adc8] hover:bg-[#585b70] transition-colors flex items-center justify-center gap-1.5"
             >
               <RotateCcw size={14} /> 驳回
+            </button>
+          </div>
+        )}
+        {task!.status === 'done' && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleContinue}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#fab387] text-[#1e1e2e] hover:bg-[#f9e2af] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <RotateCcw size={14} /> 继续执行
+            </button>
+            <button
+              onClick={() => {
+                handleTitleBlur()
+                handleDescBlur()
+              }}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Save size={14} /> 更新
+            </button>
+            <button
+              onClick={handleDelete}
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#f38ba8]/15 text-[#f38ba8] hover:bg-[#f38ba8]/25 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Trash2 size={14} /> 删除
             </button>
           </div>
         )}

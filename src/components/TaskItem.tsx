@@ -1,19 +1,16 @@
+import { memo } from 'react'
 import { useTaskStore } from '../stores/taskStore'
 import type { Task } from '../types'
 import { Circle, CheckCircle2, Clock, Flag, CheckCircle } from 'lucide-react'
+import { PRIORITY_OPTIONS } from '../constants'
 import dayjs from 'dayjs'
+
+const priorityMap = Object.fromEntries(PRIORITY_OPTIONS.map(p => [p.value, p]))
 
 const statusIcons: Record<string, typeof Circle> = {
   todo: Circle,
   in_progress: Clock,
   done: CheckCircle2,
-}
-
-const priorityConfig: Record<string, { label: string; color: string }> = {
-  urgent: { label: '紧急', color: '#f38ba8' },
-  high: { label: '高', color: '#fab387' },
-  medium: { label: '中', color: '#f9e2af' },
-  low: { label: '低', color: '#a6e3a1' },
 }
 
 interface Props {
@@ -22,10 +19,10 @@ interface Props {
   onSelect: () => void
 }
 
-export default function TaskItem({ task, isSelected, onSelect }: Props) {
+function TaskItem({ task, isSelected, onSelect }: Props) {
   const { updateTask } = useTaskStore()
   const StatusIcon = statusIcons[task.status] || Circle
-  const prio = priorityConfig[task.priority] || priorityConfig.medium
+  const prio = priorityMap[task.priority] || priorityMap.medium
   const isOverdue = task.deadline && dayjs(task.deadline).isBefore(dayjs(), 'day') && task.status !== 'done'
 
   const handleToggleDone = (e: React.MouseEvent) => {
@@ -58,48 +55,40 @@ export default function TaskItem({ task, isSelected, onSelect }: Props) {
         <div className={`text-sm ${task.status === 'done' ? 'line-through text-[#6c7086]' : 'text-[#cdd6f4]'}`}>
           {task.title}
         </div>
-        <div className="flex items-center gap-3 mt-1">
-          {/* Priority */}
+        <div className="flex items-center gap-3 mt-1.5">
           <span className="flex items-center gap-1">
-            <Flag size={12} style={{ color: prio.color }} />
-            <span className="text-xs" style={{ color: prio.color }}>{prio.label}</span>
+            <Flag size={11} style={{ color: prio.color }} />
+            <span className="text-[11px]" style={{ color: prio.color }}>{prio.label}</span>
           </span>
 
-          {/* Deadline */}
           {task.deadline && (
-            <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-[#f38ba8]' : 'text-[#6c7086]'}`}>
+            <span className={`text-[11px] flex items-center gap-1 ${isOverdue ? 'text-[#f38ba8]' : 'text-[#6c7086]'}`}>
               <Clock size={11} />
               {dayjs(task.deadline).format('MM-DD')}
             </span>
           )}
 
-          {/* Completed at */}
-          {task.completed_at && (
-            <span className="text-xs flex items-center gap-1 text-[#a6e3a1]">
-              <CheckCircle size={11} />
-              {dayjs(task.completed_at).format('MM-DD HH:mm')}
-            </span>
-          )}
-
-          {/* Tags */}
-          {task.tags.map(tag => (
-            <span
-              key={tag.id}
-              className="text-xs px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: tag.color + '20', color: tag.color }}
-            >
-              {tag.name}
-            </span>
-          ))}
-
-          {/* Category */}
           {task.category_name && (
-            <span className="text-xs text-[#6c7086]">
-              📁 {task.category_name}
-            </span>
+            <span className="text-[11px] text-[#6c7086]">{task.category_name}</span>
           )}
-        </div>
+      </div>
+
+        {task.tags && task.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {task.tags.map(tag => (
+              <span
+                key={tag.id}
+                className="text-[10px] px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: tag.color + '20', color: tag.color }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
 }
+
+export default memo(TaskItem)

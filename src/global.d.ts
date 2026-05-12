@@ -1,23 +1,26 @@
+import type { Task, Category, Tag, TaskCreateInput, TaskUpdateInput, WeeklyReportData } from './types'
+
 export {}
 
 declare global {
   interface Window {
     api: {
-      taskList: (filters?: any) => Promise<any[]>
-      taskCreate: (task: any) => Promise<any>
-      taskUpdate: (id: string, updates: any) => Promise<any>
+      taskList: (filters?: Record<string, unknown>) => Promise<Task[]>
+      taskCreate: (task: TaskCreateInput) => Promise<Task>
+      taskUpdate: (id: string, updates: TaskUpdateInput) => Promise<Task>
       taskDelete: (id: string) => Promise<{ success: boolean }>
-      taskCalendar: (filters?: { year?: number; month?: number }) => Promise<any[]>
-      weeklyReport: (weekStart: string) => Promise<any>
+      taskCalendar: (filters?: { year?: number; month?: number }) => Promise<Task[]>
+      weeklyReport: (weekStart: string) => Promise<WeeklyReportData>
 
-      categoryList: () => Promise<any[]>
-      categoryCreate: (cat: any) => Promise<any>
-      categoryUpdate: (id: string, updates: any) => Promise<any>
+      categoryList: () => Promise<Category[]>
+      categoryCreate: (cat: { name: string; color: string }) => Promise<Category>
+      categoryUpdate: (id: string, updates: { name?: string; color?: string }) => Promise<Category>
       categoryDelete: (id: string) => Promise<{ success: boolean }>
 
-      tagList: () => Promise<any[]>
-      tagCreate: (tag: any) => Promise<any>
+      tagList: () => Promise<Tag[]>
+      tagCreate: (tag: { name: string; color: string }) => Promise<Tag>
       tagDelete: (id: string) => Promise<{ success: boolean }>
+      taskCounts: () => Promise<{ my_tasks: number; today: number; important: number; done: number }>
     }
   }
 }

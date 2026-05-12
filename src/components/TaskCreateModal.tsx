@@ -2,19 +2,7 @@ import { useState } from 'react'
 import { useTaskStore } from '../stores/taskStore'
 import { X } from 'lucide-react'
 import type { TaskPriority, TaskStatus } from '../types'
-import dayjs from 'dayjs'
-
-const priorities: { value: TaskPriority; label: string; color: string }[] = [
-  { value: 'low', label: '低', color: '#a6e3a1' },
-  { value: 'medium', label: '中', color: '#f9e2af' },
-  { value: 'high', label: '高', color: '#fab387' },
-  { value: 'urgent', label: '紧急', color: '#f38ba8' },
-]
-
-const statuses: { value: TaskStatus; label: string; color: string }[] = [
-  { value: 'todo', label: '待办', color: '#6c7086' },
-  { value: 'in_progress', label: '进行中', color: '#89b4fa' },
-]
+import { PRIORITY_OPTIONS, STATUS_OPTIONS } from '../constants'
 
 interface Props {
   open: boolean
@@ -100,7 +88,7 @@ export default function TaskCreateModal({ open, onClose }: Props) {
             <div className="flex-1">
               <label className="text-xs text-[#6c7086] mb-1 block">状态</label>
               <div className="flex gap-1">
-                {statuses.map(s => (
+                {STATUS_OPTIONS.map(s => (
                   <button
                     key={s.value}
                     onClick={() => setStatus(s.value)}
@@ -117,7 +105,7 @@ export default function TaskCreateModal({ open, onClose }: Props) {
             <div className="flex-1">
               <label className="text-xs text-[#6c7086] mb-1 block">优先级</label>
               <div className="flex gap-1">
-                {priorities.map(p => (
+                {PRIORITY_OPTIONS.map(p => (
                   <button
                     key={p.value}
                     onClick={() => setPriority(p.value)}
@@ -133,26 +121,15 @@ export default function TaskCreateModal({ open, onClose }: Props) {
             </div>
           </div>
 
-          {/* Created time + Deadline row */}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-xs text-[#6c7086] mb-1 block">创建时间</label>
-              <input
-                type="text"
-                value={dayjs().format('YYYY-MM-DD HH:mm')}
-                readOnly
-                className="w-full bg-[#313244]/60 text-[#a6adc8] text-sm rounded-lg px-3 py-2 cursor-not-allowed"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="text-xs text-[#6c7086] mb-1 block">计划完成时间</label>
-              <input
-                type="date"
-                value={deadline}
-                onChange={e => setDeadline(e.target.value)}
-                className="w-full bg-[#313244] text-[#cdd6f4] text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-[#89b4fa]"
-              />
-            </div>
+          {/* Deadline */}
+          <div>
+            <label className="text-xs text-[#6c7086] mb-1 block">计划完成时间</label>
+            <input
+              type="date"
+              value={deadline}
+              onChange={e => setDeadline(e.target.value)}
+              className="w-full bg-[#313244] text-[#cdd6f4] text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-[#89b4fa]"
+            />
           </div>
 
           {/* Category */}
@@ -175,24 +152,26 @@ export default function TaskCreateModal({ open, onClose }: Props) {
             <div>
               <label className="text-xs text-[#6c7086] mb-1 block">标签</label>
               <div className="flex flex-wrap gap-1.5">
-                {tags.map(tag => (
+                {tags.map(tag => {
+                  const isSelected = selectedTagIds.includes(tag.id)
+                  return (
                   <button
                     key={tag.id}
                     onClick={() => toggleTag(tag.id)}
-                    className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
-                      selectedTagIds.includes(tag.id)
-                        ? 'ring-1 ring-offset-1 ring-offset-[#1e1e2e]'
+                    className={`text-xs px-2.5 py-1 rounded-md ring-1 ring-transparent transition-all ${
+                      isSelected
+                        ? 'opacity-100'
                         : 'opacity-50 hover:opacity-100'
                     }`}
                     style={{
                       backgroundColor: tag.color + '20',
                       color: tag.color,
-                      ringColor: selectedTagIds.includes(tag.id) ? tag.color : undefined,
-                    }}
+                      '--tw-ring-color': isSelected ? tag.color : 'transparent',
+                    } as React.CSSProperties}
                   >
                     {tag.name}
                   </button>
-                ))}
+                )})}
               </div>
             </div>
           )}

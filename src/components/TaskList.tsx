@@ -107,7 +107,16 @@ export default function TaskList() {
         {tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-[#6c7086]">
             <InboxIcon />
-            <p className="mt-2 text-sm">暂无任务</p>
+            <p className="mt-3 text-sm">暂无任务</p>
+            {activeFilter === 'task_library' && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="mt-4 flex items-center gap-1.5 px-4 py-2 bg-[#89b4fa] text-[#1e1e2e] rounded-lg text-sm font-medium hover:bg-[#74c7ec] transition-colors"
+              >
+                <Plus size={14} />
+                创建第一个任务
+              </button>
+            )}
           </div>
         ) : (
           visibleTasks.map(task => (
