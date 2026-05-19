@@ -1,23 +1,107 @@
 import { useTaskStore } from '../stores/taskStore'
-import { X, Flag, Calendar, Tag, Folder, UserPlus, CheckCircle, Trash2, Save, ArrowRight, RotateCcw } from 'lucide-react'
+import { X, Flag, Calendar, Tag, Folder, FolderOpen, UserPlus, CheckCircle, Trash2, Save, ArrowRight, RotateCcw, Plus, ChevronDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
-import type { TaskPriority, TaskStatus } from '../types'
-import { PRIORITY_OPTIONS, STATUS_OPTIONS, PRIORITY_MAP, STATUS_MAP } from '../constants'
+import type { TaskPriority, TaskStatus, Task } from '../types'
+import { PRIORITY_OPTIONS, STATUS_OPTIONS } from '../constants'
+import TaskCreateModal from './TaskCreateModal'
+
+// --- SubtaskItem 子组件 ---
+function SubtaskItem({ task, onStatusChange, onDelete }: {
+  task: Task
+  onStatusChange: (status: string) => void
+  onDelete: () => void
+}) {
+  const [showMenu, setShowMenu] = useState(false)
+  const isDone = task.status === 'done'
+
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#313244]/50 group hover:bg-[#313244] transition-colors">
+      {/* 状态圆点 */}
+      <button onClick={() => onStatusChange(task.status === 'todo' ? 'in_progress' : 'done')} className="flex-shrink-0 mt-px">
+        <span className={`w-3 h-3 rounded-full border-2 ${
+          isDone
+            ? 'bg-[#a6e3a1] border-[#a6e3a1]'
+            : 'bg-transparent border-[#585b70] hover:border-[#89b4fa]'
+        }`}>
+          {isDone && (
+            <svg width="6" height="6" viewBox="0 0 8 8" className="block mx-auto -mt-1.5"><path d="M1 4l2 2 3-4" stroke="#1e1e2e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+          )}
+        </span>
+      </button>
+
+      {/* 标题 */}
+      <span className={`flex-1 text-xs truncate ${
+        isDone ? 'text-[#585b70] line-through' : 'text-[#cdd6f4]'
+      }`}>
+        {task.title}
+      </span>
+
+      {/* 状态标签 + 下拉菜单 */}
+      <div className="relative">
+        <button
+          onClick={() => setShowMenu(!showMenu)}
+          className="flex-shrink-0 flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] transition-colors"
+          style={{
+            backgroundColor: task.status === 'done' ? '#a6e3a120' : task.status === 'in_progress' ? '#89b4fa20' : '#45475a',
+            color: task.status === 'done' ? '#a6e3a1' : task.status === 'in_progress' ? '#89b4fa' : '#a6adc8',
+          }}
+        >
+          {task.status === 'done' ? '已完成' : task.status === 'in_progress' ? '进行中' : '待办'}
+          <ChevronDown size={10} />
+        </button>
+        {showMenu && (
+          <div className="absolute right-0 top-full mt-1 z-50 bg-[#1e1e2e] border border-[#313244] rounded-lg shadow-xl overflow-hidden min-w-[80px]">
+            <button
+              onClick={(e) => { e.stopPropagation(); onStatusChange('todo'); setShowMenu(false) }}
+              className={`w-full text-left px-2.5 py-1.5 text-[10px] transition-colors ${task.status === 'todo' ? 'text-[#cdd6f4] bg-[#45475a]' : 'text-[#a6adc8] hover:bg-[#313244]'}`}
+            >
+              待办
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onStatusChange('in_progress'); setShowMenu(false) }}
+              className={`w-full text-left px-2.5 py-1.5 text-[10px] transition-colors ${task.status === 'in_progress' ? 'text-[#89b4fa] bg-[#89b4fa]/10' : 'text-[#a6adc8] hover:bg-[#313244]'}`}
+            >
+              进行中
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onStatusChange('done'); setShowMenu(false) }}
+              className={`w-full text-left px-2.5 py-1.5 text-[10px] transition-colors ${task.status === 'done' ? 'text-[#a6e3a1] bg-[#a6e3a1]/10' : 'text-[#a6adc8] hover:bg-[#313244]'}`}
+            >
+              已完成
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 删除按钮 */}
+      <button
+        onClick={onDelete}
+        className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-[#585b70] hover:text-[#f38ba8] transition-all p-0.5"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  )
+}
 
 export default function TaskDetail() {
-  const { selectedTaskId, selectedTask, categories, tags, updateTask, deleteTask, selectTask } = useTaskStore()
+  const { selectedTaskId, selectedTask, categories, tags, updateTask, deleteTask, selectTask,
+    childrenTasks, loadChildren } = useTaskStore()
   const task = selectedTask
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [showChildModal, setShowChildModal] = useState(false)
+  const [newChildTitle, setNewChildTitle] = useState('')
 
   useEffect(() => {
     if (task) {
       setTitle(task.title)
       setDescription(task.description)
+      loadChildren(task.id)
     }
-  }, [task?.id])
+  }, [task?.id, loadChildren])
 
   if (!task || task.id !== selectedTaskId) {
     return (
@@ -73,6 +157,29 @@ export default function TaskDetail() {
       ? currentTagIds.filter(id => id !== tagId)
       : [...currentTagIds, tagId]
     updateTask(task!.id, { tag_ids: newTagIds })
+  }
+
+  const handleToggleChild = (childId: string, currentStatus: string, newStatus?: string) => {
+    const targetStatus = newStatus ?? (currentStatus === 'done' ? 'todo' : 'done')
+    const updates: Record<string, any> = { status: targetStatus }
+    if (targetStatus === 'done') {
+      updates.completed_at = new Date().toISOString()
+    } else {
+      updates.completed_at = null
+    }
+    updateTask(childId, updates).then(() => loadChildren(task!.id))
+  }
+
+  const handleQuickAddChild = () => {
+    const t = newChildTitle.trim()
+    if (!t || !task) return
+    updateTask(task.id, { /* dummy to trigger refresh via store */ })
+    // Use createTask from store with parent_id
+    const { createTask } = useTaskStore.getState()
+    createTask({ title: t, status: 'todo', parent_id: task.id }).then(() => {
+      setNewChildTitle('')
+      loadChildren(task.id)
+    })
   }
 
   return (
@@ -248,6 +355,77 @@ export default function TaskDetail() {
             placeholder="添加描述..."
           />
         </div>
+        {/* Children / Subtasks */}
+        <div>
+          {/* Section header with icon */}
+          <div className="flex items-center gap-1.5 mb-3">
+            <FolderOpen size={13} className="text-[#89b4fa]" />
+            <span className="text-xs text-[#cdd6f4] font-medium">子任务</span>
+          </div>
+
+          {childrenTasks.length > 0 ? (
+            <>
+              {/* Progress bar */}
+              {(() => {
+                const done = childrenTasks.filter(c => c.status === 'done').length
+                const total = childrenTasks.length
+                const pct = Math.round(done / total * 100)
+                return (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] text-[#6c7086]">完成进度</span>
+                      <span className="text-[10px] font-medium text-[#89b4fa]">{done}/{total} {pct}%</span>
+                    </div>
+                    <div className="h-1.5 bg-[#313244] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#89b4fa] to-[#74c7ec] rounded-full transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Subtask list */}
+              <div className="space-y-1.5">
+                {childrenTasks.map(child => (
+                  <SubtaskItem
+                    key={child.id}
+                    task={child}
+                    onStatusChange={(status) => handleToggleChild(child.id, child.status, status)}
+                    onDelete={() => {
+                      updateTask(child.id, { parent_id: null }).then(() => loadChildren(task!.id))
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-[#585b70] py-2">暂无子任务</p>
+          )}
+
+          {/* Add subtask input row — hidden when parent is done */}
+          {task!.status !== 'done' && (
+          <div className="flex gap-2 mt-3">
+            <input
+              value={newChildTitle}
+              onChange={(e) => setNewChildTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleQuickAddChild()
+              }}
+              placeholder="添加子任务..."
+              className="flex-1 bg-[#313244]/60 text-[#cdd6f4] text-xs rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-[#89b4fa] placeholder:text-[#585b70] border border-transparent focus:border-[#45475a]"
+            />
+            <button
+              onClick={handleQuickAddChild}
+              disabled={!newChildTitle.trim()}
+              className="px-3 py-2 rounded-lg bg-[#89b4fa] disabled:opacity-30 text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors text-xs font-medium flex items-center gap-1 whitespace-nowrap"
+            >
+              <Plus size={14} /> 添加
+            </button>
+          </div>
+          )}
+        </div>
       </div>
 
       {/* Footer — buttons by status */}
@@ -328,6 +506,14 @@ export default function TaskDetail() {
           </div>
         )}
       </div>
+      {/* Subtask create modal */}
+      <TaskCreateModal
+        open={showChildModal}
+        onClose={() => setShowChildModal(false)}
+        presetParentId={task!.id}
+        presetParentTitle={task!.title}
+        onCreated={() => loadChildren(task!.id)}
+      />
     </aside>
   )
 }

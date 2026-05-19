@@ -33,7 +33,7 @@ function initDatabase() {
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         description TEXT DEFAULT '',
-        status TEXT DEFAULT 'todo' CHECK(status IN ('todo','in_progress','done','cancelled')),
+        status TEXT DEFAULT 'todo' CHECK(status IN ('todo','in_progress','done')),
         priority TEXT DEFAULT 'medium' CHECK(priority IN ('low','medium','high','urgent')),
         deadline TEXT,
         category_id TEXT,
@@ -42,7 +42,9 @@ function initDatabase() {
         completed_at TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime')),
         updated_at TEXT DEFAULT (datetime('now','localtime')),
-        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+        parent_id TEXT,
+        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+        FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL
       );
 
       CREATE TABLE IF NOT EXISTS task_tags (
@@ -70,6 +72,9 @@ function initDatabase() {
     if (!cols.includes('completed_at')) {
       db.exec(`ALTER TABLE tasks ADD COLUMN completed_at TEXT`)
     }
+    if (!cols.includes('parent_id')) {
+      db.exec(`ALTER TABLE tasks ADD COLUMN parent_id TEXT`)
+    }
     
     console.log('Database schema initialized')
   } catch (err) {
@@ -80,7 +85,7 @@ function initDatabase() {
 
 // --- IPC: Tasks ---
 ipcMain.handle('task:list', (_, filters) => {
-  let sql = `SELECT t.*, c.name as category_name, c.color as category_color FROM tasks t LEFT JOIN categories c ON t.category_id = c.id WHERE 1=1`
+  let sql = `SELECT t.*, c.name as category_name, c.color as category_color, p.title as parent_title, (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = t.id) as children_count, (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = t.id AND c.status = 'done') as children_done FROM tasks t LEFT JOIN categories c ON t.category_id = c.id LEFT JOIN tasks p ON t.parent_id = p.id WHERE 1=1`
   const params = []
 
   if (filters) {
@@ -112,6 +117,18 @@ ipcMain.handle('task:list', (_, filters) => {
       if (filters.important) {
         sql += ` AND t.priority IN ('high','urgent')`
       }
+      // 默认排除子任务，仅当明确查询子任务(parent_id)或按id查单个时不过滤
+      if (filters.parent_id !== undefined) {
+        if (filters.parent_id === null) {
+          sql += ` AND t.parent_id IS NULL`
+        } else {
+          sql += ` AND t.parent_id = ?`
+          params.push(filters.parent_id)
+        }
+      } else {
+        sql += ` AND t.parent_id IS NULL`
+      }
+
       if (filters.search) {
         sql += ` AND (t.title LIKE ? OR t.description LIKE ?)`
         params.push(`%${filters.search}%`, `%${filters.search}%`)
@@ -142,8 +159,8 @@ ipcMain.handle('task:list', (_, filters) => {
 ipcMain.handle('task:create', (_, task) => {
   const id = task.id || require('uuid').v4()
   const now = new Date().toISOString()
-  db.prepare(`INSERT INTO tasks (id, title, description, status, priority, deadline, category_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(id, task.title, task.description || '', task.status || 'todo', task.priority || 'medium', task.deadline || null, task.category_id || null, now, now)
+  db.prepare(`INSERT INTO tasks (id, title, description, status, priority, deadline, category_id, parent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, task.title, task.description || '', task.status || 'todo', task.priority || 'medium', task.deadline || null, task.category_id || null, task.parent_id || null, now, now)
 
   if (task.tag_ids && task.tag_ids.length > 0) {
     const insertTag = db.prepare(`INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)`)
@@ -159,7 +176,7 @@ ipcMain.handle('task:update', (_, id, updates) => {
   const fields = []
   const params = []
   for (const [key, value] of Object.entries(updates)) {
-    if (['title', 'description', 'status', 'priority', 'deadline', 'category_id', 'owner_id', 'accepted_at', 'completed_at'].includes(key)) {
+    if (['title', 'description', 'status', 'priority', 'deadline', 'category_id', 'owner_id', 'accepted_at', 'completed_at', 'parent_id'].includes(key)) {
       fields.push(`${key} = ?`)
       params.push(value)
     }

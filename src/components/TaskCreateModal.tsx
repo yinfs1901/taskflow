@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { useTaskStore } from '../stores/taskStore'
-import { X } from 'lucide-react'
+import { X, FolderOpen } from 'lucide-react'
 import type { TaskPriority, TaskStatus } from '../types'
 import { PRIORITY_OPTIONS, STATUS_OPTIONS } from '../constants'
 
 interface Props {
   open: boolean
   onClose: () => void
+  presetParentId?: string
+  presetParentTitle?: string
+  onCreated?: () => void
 }
 
-export default function TaskCreateModal({ open, onClose }: Props) {
+export default function TaskCreateModal({ open, onClose, presetParentId, presetParentTitle, onCreated }: Props) {
   const { categories, tags, createTask } = useTaskStore()
 
   const [title, setTitle] = useState('')
@@ -32,7 +35,9 @@ export default function TaskCreateModal({ open, onClose }: Props) {
       deadline: deadline || null,
       category_id: categoryId || null,
       tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+      parent_id: presetParentId || null,
     })
+    onCreated?.()
     handleClose()
   }
 
@@ -62,7 +67,9 @@ export default function TaskCreateModal({ open, onClose }: Props) {
       <div className="relative bg-[#1e1e2e] border border-[#313244] rounded-xl shadow-2xl w-[520px] max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#313244]">
-          <h3 className="text-base font-semibold text-[#cdd6f4]">新建任务</h3>
+          <h3 className="text-base font-semibold text-[#cdd6f4]">
+            {presetParentId ? '添加子任务' : '新建任务'}
+          </h3>
           <button onClick={handleClose} className="text-[#6c7086] hover:text-[#cdd6f4] transition-colors">
             <X size={18} />
           </button>
@@ -70,6 +77,15 @@ export default function TaskCreateModal({ open, onClose }: Props) {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {/* Parent task info bar */}
+          {presetParentId && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#313244]/60 border border-[#45475a]">
+              <FolderOpen size={14} className="text-[#89b4fa] flex-shrink-0" />
+              <span className="text-xs text-[#6c7086]">父任务：</span>
+              <span className="text-xs text-[#cdd6f4] truncate">{presetParentTitle || '未知任务'}</span>
+            </div>
+          )}
+
           {/* Title */}
           <div>
             <label className="text-xs text-[#6c7086] mb-1 block">标题 <span className="text-[#f38ba8]">*</span></label>
@@ -202,7 +218,7 @@ export default function TaskCreateModal({ open, onClose }: Props) {
             disabled={!title.trim()}
             className="px-5 py-1.5 rounded-lg text-sm font-medium bg-[#89b4fa] text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            创建
+            {presetParentId ? '添加' : '创建'}
           </button>
         </div>
       </div>

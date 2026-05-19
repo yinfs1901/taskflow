@@ -15,6 +15,7 @@ interface TaskStore {
   activeCategoryId: string | null
   selectedTaskId: string | null
   selectedTask: Task | null   // full task for detail panel
+  childrenTasks: Task[]       // children of selected task
   searchQuery: string
   orderBy: string
   pageSize: number
@@ -52,6 +53,8 @@ interface TaskStore {
   deleteCategory: (id: string) => Promise<void>
   createTag: (name: string, color: string) => Promise<void>
   deleteTag: (id: string) => Promise<void>
+  loadChildren: (parentId: string) => Promise<void>
+  createChild: (parentId: string, input: Omit<TaskCreateInput, 'parent_id'>) => Promise<void>
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -62,6 +65,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   activeCategoryId: null,
   selectedTaskId: null,
   selectedTask: null,
+  childrenTasks: [],
   searchQuery: '',
   orderBy: 'deadline ASC',
   pageSize: 20,
@@ -115,9 +119,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   updateTask: async (id, updates) => {
     await api.taskUpdate(id, updates)
-    // Refresh selectedTask from DB so detail panel always has current data
-    const updated = await api.taskList({ id })
-    set({ selectedTask: updated && updated.length > 0 ? updated[0] : null })
+    // Refresh selectedTask — use selectedTaskId, not the updated id
+    // (if we updated a child task, we still want the parent as selectedTask)
+    const selId = get().selectedTaskId
+    if (selId) {
+      const refreshed = await api.taskList({ id: selId })
+      set({ selectedTask: refreshed && refreshed.length > 0 ? refreshed[0] : null })
+    }
     await get().loadTasks()
   },
 
@@ -236,5 +244,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const next = dir === 'prev' ? d.subtract(1, 'week') : d.add(1, 'week')
     set({ weekAnchor: next.format('YYYY-MM-DD') })
     get().loadWeeklyReport()
+  },
+
+  loadChildren: async (parentId) => {
+    const children = await api.taskList({ parent_id: parentId })
+    set({ childrenTasks: children })
+  },
+
+  createChild: async (parentId, input) => {
+    await api.taskCreate({ ...input, parent_id: parentId })
+    await get().loadChildren(parentId)
+    await get().loadTasks()
   },
 }))

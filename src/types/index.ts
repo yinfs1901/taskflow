@@ -33,6 +33,10 @@ export interface Task {
   owner_id: string | null  // 领用人ID
   accepted_at: string | null  // 领用时间
   completed_at: string | null  // 实际完成时间
+  parent_id?: string | null  // 父任务ID
+  parent_title?: string  // 父任务标题（查询时附带）
+  children_count?: number  // 子任务数量（查询时计算）
+  children_done?: number  // 已完成子任务数（查询时计算）
   created_at: string
   updated_at: string
 }
@@ -44,6 +48,7 @@ export interface TaskCreateInput {
   priority?: TaskPriority
   deadline?: string | null
   category_id?: string | null
+  parent_id?: string | null
   tag_ids?: string[]
 }
 
